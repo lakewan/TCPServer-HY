@@ -122,6 +122,6 @@
     <value>534, 450</value>
   </data>
   <data name="$this.Text" xml:space="preserve">
-    <value>UDP服务器</value>
+    <value>TCP服务器</value>
   </data>
 </root>

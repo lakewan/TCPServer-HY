@@ -56,9 +56,11 @@
             this.label8 = new System.Windows.Forms.Label();
             this.txtDataIP = new System.Windows.Forms.TextBox();
             this.groupBox1 = new System.Windows.Forms.GroupBox();
-            this.txtSendMsg = new System.Windows.Forms.TextBox();
             this.label9 = new System.Windows.Forms.Label();
             this.txtDB = new System.Windows.Forms.TextBox();
+            this.txtSendMsg = new System.Windows.Forms.TextBox();
+            this.lstClient = new System.Windows.Forms.ListBox();
+            this.label10 = new System.Windows.Forms.Label();
             this.grpRecvEncode.SuspendLayout();
             this.grpSendEncode.SuspendLayout();
             this.groupBox1.SuspendLayout();
@@ -125,7 +127,7 @@
             // 
             this.label3.AutoSize = true;
             this.label3.Font = new System.Drawing.Font("宋体", 9F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(134)));
-            this.label3.Location = new System.Drawing.Point(27, 42);
+            this.label3.Location = new System.Drawing.Point(181, 42);
             this.label3.Name = "label3";
             this.label3.Size = new System.Drawing.Size(57, 12);
             this.label3.TabIndex = 5;
@@ -135,7 +137,7 @@
             // 
             this.btnSendto.BackColor = System.Drawing.Color.DodgerBlue;
             this.btnSendto.Font = new System.Drawing.Font("宋体", 9F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(134)));
-            this.btnSendto.Location = new System.Drawing.Point(475, 394);
+            this.btnSendto.Location = new System.Drawing.Point(629, 394);
             this.btnSendto.Name = "btnSendto";
             this.btnSendto.Size = new System.Drawing.Size(66, 28);
             this.btnSendto.TabIndex = 7;
@@ -146,7 +148,7 @@
             // chkAutoReply
             // 
             this.chkAutoReply.AutoSize = true;
-            this.chkAutoReply.Location = new System.Drawing.Point(549, 128);
+            this.chkAutoReply.Location = new System.Drawing.Point(703, 128);
             this.chkAutoReply.Name = "chkAutoReply";
             this.chkAutoReply.Size = new System.Drawing.Size(72, 16);
             this.chkAutoReply.TabIndex = 9;
@@ -158,7 +160,7 @@
             // 
             this.label4.AutoSize = true;
             this.label4.Font = new System.Drawing.Font("宋体", 9F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(134)));
-            this.label4.Location = new System.Drawing.Point(29, 378);
+            this.label4.Location = new System.Drawing.Point(183, 378);
             this.label4.Name = "label4";
             this.label4.Size = new System.Drawing.Size(57, 12);
             this.label4.TabIndex = 11;
@@ -192,16 +194,17 @@
             // 
             this.lsbRecvMsg.FormattingEnabled = true;
             this.lsbRecvMsg.ItemHeight = 12;
-            this.lsbRecvMsg.Location = new System.Drawing.Point(29, 61);
+            this.lsbRecvMsg.Location = new System.Drawing.Point(183, 61);
             this.lsbRecvMsg.Name = "lsbRecvMsg";
             this.lsbRecvMsg.Size = new System.Drawing.Size(510, 304);
             this.lsbRecvMsg.TabIndex = 16;
+
             // 
             // grpRecvEncode
             // 
             this.grpRecvEncode.Controls.Add(this.radRecvAscii);
             this.grpRecvEncode.Controls.Add(this.radRecvHex);
-            this.grpRecvEncode.Location = new System.Drawing.Point(547, 61);
+            this.grpRecvEncode.Location = new System.Drawing.Point(701, 61);
             this.grpRecvEncode.Name = "grpRecvEncode";
             this.grpRecvEncode.Size = new System.Drawing.Size(75, 61);
             this.grpRecvEncode.TabIndex = 19;
@@ -212,7 +215,7 @@
             // 
             this.grpSendEncode.Controls.Add(this.radSendASC);
             this.grpSendEncode.Controls.Add(this.radSendHex);
-            this.grpSendEncode.Location = new System.Drawing.Point(547, 394);
+            this.grpSendEncode.Location = new System.Drawing.Point(701, 394);
             this.grpSendEncode.Name = "grpSendEncode";
             this.grpSendEncode.Size = new System.Drawing.Size(70, 63);
             this.grpSendEncode.TabIndex = 19;
@@ -246,7 +249,7 @@
             // chkCRC16
             // 
             this.chkCRC16.AutoSize = true;
-            this.chkCRC16.Location = new System.Drawing.Point(477, 432);
+            this.chkCRC16.Location = new System.Drawing.Point(631, 432);
             this.chkCRC16.Name = "chkCRC16";
             this.chkCRC16.Size = new System.Drawing.Size(54, 16);
             this.chkCRC16.TabIndex = 20;
@@ -269,7 +272,7 @@
             // txtDataPort
             // 
             this.txtDataPort.Cursor = System.Windows.Forms.Cursors.IBeam;
-            this.txtDataPort.Location = new System.Drawing.Point(548, 233);
+            this.txtDataPort.Location = new System.Drawing.Point(702, 233);
             this.txtDataPort.Name = "txtDataPort";
             this.txtDataPort.Size = new System.Drawing.Size(73, 21);
             this.txtDataPort.TabIndex = 2;
@@ -278,7 +281,7 @@
             // txtDataUser
             // 
             this.txtDataUser.Cursor = System.Windows.Forms.Cursors.IBeam;
-            this.txtDataUser.Location = new System.Drawing.Point(548, 274);
+            this.txtDataUser.Location = new System.Drawing.Point(702, 274);
             this.txtDataUser.Name = "txtDataUser";
             this.txtDataUser.Size = new System.Drawing.Size(75, 21);
             this.txtDataUser.TabIndex = 2;
@@ -287,7 +290,7 @@
             // txtDataPassword
             // 
             this.txtDataPassword.Cursor = System.Windows.Forms.Cursors.IBeam;
-            this.txtDataPassword.Location = new System.Drawing.Point(548, 315);
+            this.txtDataPassword.Location = new System.Drawing.Point(702, 315);
             this.txtDataPassword.Name = "txtDataPassword";
             this.txtDataPassword.Size = new System.Drawing.Size(75, 21);
             this.txtDataPassword.TabIndex = 2;
@@ -296,7 +299,7 @@
             // label5
             // 
             this.label5.AutoSize = true;
-            this.label5.Location = new System.Drawing.Point(548, 217);
+            this.label5.Location = new System.Drawing.Point(702, 217);
             this.label5.Name = "label5";
             this.label5.Size = new System.Drawing.Size(65, 12);
             this.label5.TabIndex = 21;
@@ -305,7 +308,7 @@
             // label6
             // 
             this.label6.AutoSize = true;
-            this.label6.Location = new System.Drawing.Point(548, 258);
+            this.label6.Location = new System.Drawing.Point(702, 258);
             this.label6.Name = "label6";
             this.label6.Size = new System.Drawing.Size(65, 12);
             this.label6.TabIndex = 21;
@@ -314,7 +317,7 @@
             // label7
             // 
             this.label7.AutoSize = true;
-            this.label7.Location = new System.Drawing.Point(548, 299);
+            this.label7.Location = new System.Drawing.Point(702, 299);
             this.label7.Name = "label7";
             this.label7.Size = new System.Drawing.Size(65, 12);
             this.label7.TabIndex = 21;
@@ -323,7 +326,7 @@
             // label8
             // 
             this.label8.AutoSize = true;
-            this.label8.Location = new System.Drawing.Point(548, 176);
+            this.label8.Location = new System.Drawing.Point(702, 176);
             this.label8.Name = "label8";
             this.label8.Size = new System.Drawing.Size(65, 12);
             this.label8.TabIndex = 21;
@@ -332,7 +335,7 @@
             // txtDataIP
             // 
             this.txtDataIP.Cursor = System.Windows.Forms.Cursors.IBeam;
-            this.txtDataIP.Location = new System.Drawing.Point(548, 192);
+            this.txtDataIP.Location = new System.Drawing.Point(702, 192);
             this.txtDataIP.Name = "txtDataIP";
             this.txtDataIP.Size = new System.Drawing.Size(73, 21);
             this.txtDataIP.TabIndex = 2;
@@ -342,21 +345,12 @@
             // 
             this.groupBox1.Controls.Add(this.label9);
             this.groupBox1.Controls.Add(this.txtDB);
-            this.groupBox1.Location = new System.Drawing.Point(542, 155);
+            this.groupBox1.Location = new System.Drawing.Point(696, 155);
             this.groupBox1.Name = "groupBox1";
             this.groupBox1.Size = new System.Drawing.Size(81, 233);
             this.groupBox1.TabIndex = 22;
             this.groupBox1.TabStop = false;
             this.groupBox1.Text = "服务器设置";
-            // 
-            // txtSendMsg
-            // 
-            this.txtSendMsg.AllowDrop = true;
-            this.txtSendMsg.Location = new System.Drawing.Point(29, 400);
-            this.txtSendMsg.Multiline = true;
-            this.txtSendMsg.Name = "txtSendMsg";
-            this.txtSendMsg.Size = new System.Drawing.Size(440, 48);
-            this.txtSendMsg.TabIndex = 23;
             // 
             // label9
             // 
@@ -376,11 +370,41 @@
             this.txtDB.TabIndex = 2;
             this.txtDB.TextChanged += new System.EventHandler(this.txtDataPassword_TextChanged);
             // 
-            // UDPServerForm
+            // txtSendMsg
+            // 
+            this.txtSendMsg.AllowDrop = true;
+            this.txtSendMsg.Location = new System.Drawing.Point(183, 400);
+            this.txtSendMsg.Multiline = true;
+            this.txtSendMsg.Name = "txtSendMsg";
+            this.txtSendMsg.Size = new System.Drawing.Size(440, 48);
+            this.txtSendMsg.TabIndex = 23;
+            // 
+            // lstClient
+            // 
+            this.lstClient.FormattingEnabled = true;
+            this.lstClient.ItemHeight = 12;
+            this.lstClient.Location = new System.Drawing.Point(12, 61);
+            this.lstClient.MultiColumn = true;
+            this.lstClient.Name = "lstClient";
+            this.lstClient.Size = new System.Drawing.Size(150, 388);
+            this.lstClient.TabIndex = 24;
+            // 
+            // label10
+            // 
+            this.label10.AutoSize = true;
+            this.label10.Font = new System.Drawing.Font("宋体", 9F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(134)));
+            this.label10.Location = new System.Drawing.Point(12, 42);
+            this.label10.Name = "label10";
+            this.label10.Size = new System.Drawing.Size(83, 12);
+            this.label10.TabIndex = 5;
+            this.label10.Text = "已连接客户端";
+            // 
+            // TCPServerForm
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 12F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
-            this.ClientSize = new System.Drawing.Size(628, 468);
+            this.ClientSize = new System.Drawing.Size(790, 468);
+            this.Controls.Add(this.lstClient);
             this.Controls.Add(this.txtSendMsg);
             this.Controls.Add(this.txtDataPassword);
             this.Controls.Add(this.label7);
@@ -397,6 +421,7 @@
             this.Controls.Add(this.label4);
             this.Controls.Add(this.chkAutoReply);
             this.Controls.Add(this.btnSendto);
+            this.Controls.Add(this.label10);
             this.Controls.Add(this.label3);
             this.Controls.Add(this.btnClear);
             this.Controls.Add(this.btnDisconnect);
@@ -408,7 +433,7 @@
             this.Controls.Add(this.groupBox1);
             this.Cursor = System.Windows.Forms.Cursors.Default;
             this.KeyPreview = true;
-            this.Name = "UDPServerForm";
+            this.Name = "TCPServerForm";
             this.Text = "UDP服务器";
             this.grpRecvEncode.ResumeLayout(false);
             this.grpRecvEncode.PerformLayout();
@@ -454,6 +479,8 @@
         private System.Windows.Forms.TextBox txtSendMsg;
         private System.Windows.Forms.Label label9;
         private System.Windows.Forms.TextBox txtDB;
+        private System.Windows.Forms.ListBox lstClient;
+        private System.Windows.Forms.Label label10;
     }
 }
 

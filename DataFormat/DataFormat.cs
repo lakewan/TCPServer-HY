@@ -1,7 +1,12 @@
 ﻿using System;
 using System.Text;
+using System.Collections;
 using System.Collections.Generic;
 using System.Text.RegularExpressions;
+using System.Linq;
+
+//using UnityEngine;
+using Newtonsoft.Json;
 
 namespace DataFormat
 {
@@ -81,7 +86,7 @@ namespace DataFormat
         /// </summary>
         /// <param name="hexString"></param>
         /// <returns></returns>
-        private static byte[] strToToHexByte(string hexString)
+        public static byte[] strToHexByte(string hexString)
         {
             hexString = hexString.Replace(" ", "");
             if ((hexString.Length % 2) != 0)
@@ -509,14 +514,79 @@ namespace DataFormat
         /// 获取当前时间戳
         /// </summary>
         /// <returns></returns>
-        public static string getTimeStamp()
+        public static int getTimeStamp()
         {
             TimeSpan ts = DateTime.UtcNow - new DateTime(1970, 1, 1, 0, 0, 0, 0);
-            return Convert.ToInt64(ts.TotalSeconds).ToString();
+            return Convert.ToInt32(ts.TotalSeconds);
         }
 
+        /// <summary>
+        /// 字符串逆序
+        /// </summary>
+        /// <param name="text"></param>
+        /// <returns></returns>
+        public static string reverseString(string text)
+        {
+            char[] charArray = text.ToCharArray();
+            Array.Reverse(charArray);
+            return new string(charArray);
+        }
+        ///
 
+        public static string rightSub(string text,int num)
+        {
+            int len = text.Length;
+            if (len < num)
+            {
+                return null;
+            }
+            else
+            { 
+                return text.Substring(len - num);
+            }
+            
+        }
+        /// <summary>
+        /// 16进制字符串转浮点数
+        /// </summary>
+        /// <param name="s"></param>
+        /// <returns></returns>
+        public static float hextofloat(string s)
+        {
+            MatchCollection matches = Regex.Matches(s, @"[0-9A-Fa-f]{2}");
+            byte[] bytes = new byte[matches.Count];
+            for (int i = 0; i < bytes.Length; i++)
+                bytes[i] = byte.Parse(matches[i].Value, System.Globalization.NumberStyles.AllowHexSpecifier);
+            float m = BitConverter.ToSingle(bytes.Reverse().ToArray(), 0);
+            return m;
 
+            //uint num = uint.Parse(s, System.Globalization.NumberStyles.AllowHexSpecifier);
+            //byte[] floatVals = BitConverter.GetBytes(num);
+            //float f = BitConverter.ToSingle(floatVals, 0);
+
+        }
+
+        /// <summary>
+        /// 字典转json字符串
+        /// </summary>
+        /// <param name="myDic"></param>
+        /// <returns></returns>
+        public static string DictionaryToJson(Dictionary<string, string> myDic)
+        {
+            string jsonStr = JsonConvert.SerializeObject(myDic);
+            return jsonStr;
+        }
+
+        /// <summary>
+        /// json转字典
+        /// </summary>
+        /// <param name="jsonStr"></param>
+        /// <returns></returns>
+        public static Dictionary<string, string> JsonToDictionary(string jsonStr)
+        {
+            Dictionary<string, string> dic = JsonConvert.DeserializeObject<Dictionary<string, string>>(jsonStr);
+            return dic;
+        }
     }
 
 

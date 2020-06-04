@@ -34,11 +34,13 @@ namespace TCPServer
 
     public partial class TCPServerForm : Form
     {
-        private static SockServer.AsynSocketTCPServer _tcpServer;
+        private static SockServer.AsyncTCPServer _tcpServer;
         private static EndPoint remoteClient;
         private static string dataPort;
         private static string dataUser;
         private static string dataPassword;
+
+        //
 
         private bool _isListening;
         // public event ReceiveDataHandler ReceivedDataEvent;
@@ -53,8 +55,8 @@ namespace TCPServer
         {
 
             InitializeComponent();
-            txtPort.Text = "10010";
-            txtServerIP.Text = "localhost";
+            txtPort.Text = "7000";
+            txtServerIP.Text = "192.168.1.11";
             txtDataIP.Text = "localhost";
             txtDataPort.Text = "3306";
             txtDataUser.Text = "root";
@@ -74,12 +76,10 @@ namespace TCPServer
             {
                 if (!_isListening)
                 {
-                    _tcpServer = new SockServer.AsynSocketTCPServer(IPAddress.Any, Convert.ToInt32(txtPort.Text));
+                    _tcpServer = new SockServer.AsyncTCPServer();
                     _tcpServer.ShowMsgEvent += new ShowMessageDelegate(lsbShowMessage);
                     _tcpServer.Start();
                     _isListening = true;
-                    
-
 
                 }
                 else
@@ -227,7 +227,7 @@ namespace TCPServer
         {
 
         }
-      
+
 
     }
 

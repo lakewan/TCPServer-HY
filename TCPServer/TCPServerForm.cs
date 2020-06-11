@@ -29,6 +29,9 @@ namespace TCPServer
    // public delegate void OnlineChangeHandler(int onlines, EndPoint client);
    // public delegate void ErrorHandler(string error, EndPoint client);
     public delegate void TxtShowMessageDelegate(string message);
+    public delegate void lstClientAddDelegate(string clientsn);
+    public delegate void lstClientRemoveDelegate(string clientsn);
+
 
 
 
@@ -43,9 +46,7 @@ namespace TCPServer
         //
 
         private bool _isListening;
-        // public event ReceiveDataHandler ReceivedDataEvent;
-        //public event ErrorHandler ErrorEvent;
-        //public event WriteTextLogHandle WriteTextLogEvent;
+
         private bool bRecvEncodeHex = true;
         private bool bAutoReply = false;
         private bool bSendEncodeHex = true;
@@ -78,8 +79,12 @@ namespace TCPServer
                 {
                     _tcpServer = new SockServer.AsyncTCPServer();
                     _tcpServer.ShowMsgEvent += new ShowMessageDelegate(lsbShowMessage);
+                    _tcpServer.addClientEvent += new addClientDelegate(lstClientAdd);
+                    _tcpServer.removeClientEvent += new removeClientDelegate(lstClientRemove);
                     _tcpServer.Start();
                     _isListening = true;
+                    Thread clearLogTask = new Thread(clearLog);
+                    clearLogTask.Start();
 
                 }
                 else
@@ -102,15 +107,13 @@ namespace TCPServer
 
         private void btnDisconnect_Click(object sender, EventArgs e)
         {
-            _tcpServer.Stop();
-
-            /*
+          
             _isListening = false;    //停止监听实例
             string msg = DateTime.Now.ToString() + " 服务器关闭监听";
-            _tcpServer.Close();
+            _tcpServer.CloseAllClient();
             lsbRecvMsg.Items.Add(msg);
             EveryDayLog.Write(msg);
-            */
+            
 
         }
 
@@ -144,12 +147,50 @@ namespace TCPServer
                 lstbox.Items.Clear();
             }
         }
+
+        private void lstClientAdd(string clientsn)
+        {
+            if (lstClient.InvokeRequired)
+            {
+                lstClientAddDelegate addClientDelegate = lstClientAdd;
+                lstClient.Invoke(addClientDelegate, new object[] { clientsn });
+            }
+            else
+            {
+                if (!this.lstClient.Items.Contains(clientsn))
+                {
+                    lstClient.Items.Add(clientsn);
+                }
+                
+                
+            }
+
+        }
+
+        private void lstClientRemove(string clientsn)
+        {
+            if (lstClient.InvokeRequired)
+            {
+                lstClientRemoveDelegate removeClientDelegate = lstClientRemove;
+                lstClient.Invoke(removeClientDelegate, new object[] { clientsn });
+            }
+            else
+            {
+                if (this.lstClient.Items.Contains(clientsn))
+                {
+                    lstClient.Items.Remove(clientsn);
+                }
+            }
+
+
+        }
+
+
         private void lsbRecvMsg_MouseDoubleClick(object sender, MouseEventArgs e)
         {
             int index = this.lsbRecvMsg.IndexFromPoint(e.Location);
             if (lsbRecvMsg.SelectedItems.Count == 0)
             {
-
                 MessageBox.Show("未选中显示项"); //执行双击事件
 
             }
@@ -221,6 +262,12 @@ namespace TCPServer
                 txtSendMsg.Text = txtSendMsg.Text.Replace(" ", "") + FormatFunc.ToModbusCRC16(txtSendMsg.Text);
 
             }
+        }
+        public void clearLog()
+        {
+            Thread.Sleep(3600000);
+            ResetTextBox(lsbRecvMsg);
+
         }
 
         private void btnSendto_Click(object sender, EventArgs e)

@@ -24,6 +24,8 @@ using uPLibrary.Networking.M2Mqtt.Messages;
 namespace SockServer
 {
     public delegate void ShowMessageDelegate(string msg);
+    public delegate void addClientDelegate(string clientsn);
+    public delegate void removeClientDelegate(string clientsn);
 
     public class AsyncTCPServer : IDisposable
     {
@@ -61,8 +63,11 @@ namespace SockServer
         private int _get_state_time;
         private int _get_command_time;
         private string _communicationtype;
+        private int _linked_timeout;
 
         public event ShowMessageDelegate ShowMsgEvent;
+        public event addClientDelegate addClientEvent;
+        public event removeClientDelegate removeClientEvent;
        
 
         public List<string> _linkedList = new List<string>();
@@ -137,6 +142,7 @@ namespace SockServer
                 _collect_time = Convert.ToInt32(iniFile.IniReadValue("Settings", "collect_time"))*1000;
                  _get_state_time= Convert.ToInt32(iniFile.IniReadValue("Settings", "get_state_time"))*1000;
                 _get_command_time = Convert.ToInt32(iniFile.IniReadValue("Settings", "get_command_time")) * 1000;
+                _linked_timeout = Convert.ToInt32(iniFile.IniReadValue("Settings", "linked_overtime")) * 1000;
 
 
                 IPAddress Address = IPAddress.Parse(iniFile.IniReadValue("Listen", "serverip"));
@@ -195,6 +201,10 @@ namespace SockServer
 
                     getCmdThrd.Start();
                     Task.Run(() => MQTT_Connect());
+
+                    Thread linkedOverTime = new Thread(overtimeClientThrd);
+                    linkedOverTime.Start();
+
                     string msg = DateTime.Now.ToString() + " 服务器(" + this.Port + ")开始监听";
                     ShowMsgEvent(msg);
                     EveryDayLog.Write(msg);
@@ -283,13 +293,15 @@ namespace SockServer
                 if (recv == 0)
                 {
                     // connection has been closed
-                    lock (_clients)
-                    {
-                        //_clients.Remove(state);
-                        //触发客户端连接断开事件
-                        RaiseClientDisconnected(state);
-                        return;
-                    }
+                    //lock (_clients)
+                    //{
+                    //    //_clients.Remove(state);
+                    //    //触发客户端连接断开事件
+                    //    RaiseClientDisconnected(state);
+                    //    return;
+                    //}
+                    Close(state);
+                    return;
                 }
                 // received byte and trigger event notification
                 byte[] buff = new byte[recv];
@@ -432,6 +444,7 @@ namespace SockServer
                                 state.clientComm = (CommDevice)clientComm;
                                 _linkedList.Add(ipport);
                                 _commtoipportDict.TryAdd(gw_sn, ipport);
+                                addClientEvent(gw_sn);
 
                                 Task.Run(() =>  collectDataorState(state));
                                 msg = DateTime.Now.ToString() + " 从待授权客户端（" + gw_sn + "）接受心跳，并将新连接从待授权转入已授权";
@@ -503,6 +516,7 @@ namespace SockServer
                     }
                     if(!bComm)
                     {
+                        state.faildTimes++;
                         msg = DateTime.Now.ToString() + " 授权客户端（" + state.clientComm.serial_num + ")获取非法数据" + sRecvData;
                         ShowMsgEvent(msg);
                         EveryDayLog.Write(msg);
@@ -540,7 +554,7 @@ namespace SockServer
                                 state.lastTime = DateTime.Now.ToString();
                                 state.faildTimes = 0;
                                 state.clientStatus = 2;
-                                PLC_handlerecv(state.clientComm, sRecvData.Substring(16));
+                                YYC_handlerecv(state.clientComm, sRecvData.Substring(16));
                                 break;
                             case "SFJ-0804":
                                 state.lastTime = DateTime.Now.ToString();
@@ -567,6 +581,7 @@ namespace SockServer
                             //    MQT_handlerecv(state.clientComm, sRecvData.Substring(16));
                             //    break;
                             default:
+                                state.faildTimes++;
                                 msg = DateTime.Now.ToString() + " 处理未知类型授权客户端（" + state.clientComm.serial_num + ")数据" + sRecvData;
                                 ShowMsgEvent(msg);
                                 EveryDayLog.Write(msg);
@@ -632,12 +647,6 @@ namespace SockServer
             }
                 
         }
-
-
-
-
-
-
 
 
         /// <summary>
@@ -1095,16 +1104,37 @@ namespace SockServer
         /// <param name="data">报文</param>
         public void Send(TcpClient client, byte[] data)
         {
-
-            if (!IsRunning)
-                throw new InvalidProgramException("This TCP Scoket server has not been started.");
-
-            if (client == null)
-                throw new ArgumentNullException("client");
-
-            if (data == null)
-                throw new ArgumentNullException("data");
-            client.GetStream().BeginWrite(data, 0, data.Length, SendDataEnd, client);
+            string msg=null;
+            try
+            {
+                if (!IsRunning)
+                {
+                    //throw new InvalidProgramException("This TCP Scoket server has not been started.");
+                    msg = "This TCP Scoket server has not been started";
+                    EveryDayLog.Write(msg);
+                }
+                if (client == null)
+                {
+                    //throw new ArgumentNullException("client");
+                    msg = "client is null";
+                    EveryDayLog.Write(msg);
+                }
+                if (data == null)
+                {
+                    //throw new ArgumentNullException("data");
+                    msg = "data is null";
+                    EveryDayLog.Write(msg);
+                }
+                if (client.Connected)
+                {
+                    client.GetStream().BeginWrite(data, 0, data.Length, SendDataEnd, client);
+                }
+            }
+            catch (Exception err)
+            {
+                msg = DateTime.Now.ToString() + " 发送数据失败： " + err.Message;
+                EveryDayLog.Write(msg);
+            }
 
         }
 
@@ -1861,73 +1891,73 @@ namespace SockServer
                             switch (oneSensor.devformula)
                             {
                                 case "WENDU":
-                                    sensorData = (sensorValue / 10).ToString("f1");
+                                    sensorData = sensorValue.ToString("f1");
                                     break;
                                 case "SHIDU":
-                                    sensorData = (sensorValue / 10).ToString("f1");
+                                    sensorData = sensorValue.ToString("f1");
                                     break;
                                 case "BEAM":
-                                    sensorData = (sensorValue).ToString("f0");
+                                    sensorData = sensorValue.ToString("f0");
                                     break;
                                 case "CO2":
-                                    sensorData = (sensorValue).ToString("f0");
+                                    sensorData = sensorValue.ToString("f0");
                                     break;
                                 case "Q-WENDU":
-                                    sensorData = (sensorValue / 10).ToString("f1");
+                                    sensorData = sensorValue.ToString("f1");
                                     break;
                                 case "Q-SHIDU":
-                                    sensorData = (sensorValue / 10).ToString("f1");
+                                    sensorData = sensorValue.ToString("f1");
                                     break;
                                 case "PH":
-                                    sensorData = (sensorValue / 10).ToString("f1");
+                                    sensorData = sensorValue.ToString("f1");
                                     break;
                                 case "EC":
-                                    sensorData = (sensorValue / 10).ToString("f1");
+                                    sensorData = sensorValue.ToString("f1");
                                     break;
                                 case "FS":
-                                    sensorData = (sensorValue / 10).ToString("f1");
+                                    sensorData = sensorValue.ToString("f1");
                                     break;
                                 case "FX":
-                                    sensorData = (sensorValue).ToString("f0");
+                                    sensorData = sensorValue.ToString("f0");
                                     break;
                                 case "YL":
-                                    sensorData = (sensorValue / 10).ToString("f1");
+                                    sensorData = sensorValue.ToString("f1");
                                     break;
                                 case "QY":
-                                    sensorData = (sensorValue / 10).ToString("f1");
+                                    sensorData = sensorValue.ToString("f1");
                                     break;
                                 case "SWD":
-                                    sensorData = (sensorValue / 10).ToString("f1");
+                                    sensorData = sensorValue.ToString("f1");
                                     break;
                                 case "SWZ":
-                                    sensorData = (sensorValue / 10).ToString("f1");
+                                    sensorData = sensorValue.ToString("f1");
                                     break;
                                 case "ORP":
-                                    sensorData = (sensorValue / 10).ToString("f1");
+                                    sensorData = sensorValue.ToString("f1");
                                     break;
                                 case "SPH":
-                                    sensorData = (sensorValue / 10).ToString("f1");
+                                    sensorData = sensorValue.ToString("f1");
                                     break;
                                 case "SEC":
-                                    sensorData = (sensorValue / 1000).ToString("f3");
+                                    sensorData = sensorValue.ToString("f3");
                                     break;
                                 case "VOC":
-                                    sensorData = (sensorValue / 10).ToString("f1");
+                                    sensorData = sensorValue.ToString("f1");
                                     break;
                                 case "PM25":
-                                    sensorData = (sensorValue).ToString("f0");
+                                    sensorData = sensorValue.ToString("f0");
                                     break;
                                 case "Y-WENDU":
-                                    sensorData = (sensorValue / 10).ToString("f1");
+                                    sensorData = sensorValue.ToString("f1");
                                     break;
                                 case "Y-SHIDU":
-                                    sensorData = (sensorValue / 10).ToString("f1");
+                                    sensorData = sensorValue.ToString("f1");
                                     break;
                                 case "GS-D":
-                                    sensorData = (sensorValue / 100).ToString("f2");
+                                    sensorData = sensorValue.ToString("f2");
                                     break;
                                 case "JG-D":
-                                    sensorData = (sensorValue / 100).ToString("f2");
+                                    sensorData = sensorValue.ToString("f2");
                                     break;
                                 default:
                                     msg = DateTime.Now.ToString() + " YYC设备（" + comm.serial_num + "）未知的公式:" + oneSensor.devformula;
@@ -2258,9 +2288,6 @@ namespace SockServer
                     foreach (KeyValuePair<string, string> kvp in payloadDict)
                     {
                         int _sensorIndex = getSensorbyFoumula(kvp.Key, commsn, subGroupID);
-                        //msg = DateTime.Now.ToString() + " _sensorIndex:" + _sensorIndex.ToString()+"sn:"+ commsn+" formula:"+ kvp.Key+" subGroupID:"+ subGroupID.ToString();
-                        //ShowMsgEvent(msg);
-                        //EveryDayLog.Write(msg);
                         if (_sensorIndex >= 0)
                         {
                             switch (_sensorList[_sensorIndex].devformula)
@@ -2601,7 +2628,6 @@ namespace SockServer
         }
         public void getCommand_Thrd()
         {
-            Thread.Sleep(120000);
             while (IsRunning)
             { 
                 
@@ -2610,9 +2636,6 @@ namespace SockServer
                 string resultSQL = null;
                 string comm_sn = null;
                 List<CommandInfo> cmdList = new List<CommandInfo>();
-                msg = DateTime.Now.ToString() + " 循环检查1次";
-                ShowMsgEvent(msg);
-                EveryDayLog.Write(msg);
                 if (_communicationtype.Contains("1"))
                 {
 
@@ -2971,6 +2994,33 @@ namespace SockServer
             }
 
         }
+
+        public void overtimeClientThrd()
+        {
+            while (true)
+            {
+                foreach (KeyValuePair<string, TCPClientState> one in _iptoStateDict)
+                {
+                    string lasttime = one.Value.lastTime;
+                    TCPClientState state = one.Value;
+                    int tp = (int)DateTime.Now.Subtract(Convert.ToDateTime(state.lastTime)).Duration().TotalSeconds;
+                    if (tp > _linked_timeout || (!state.TcpClient.Connected))
+                    {
+                        state.Close();
+                    }
+                    else
+                    {
+                        if (state.TcpClient.Connected)
+                        {
+                            Send(state, "01020304");
+                        }
+                    }
+                }
+                Thread.Sleep(600000);//10分钟检测1次
+            }
+        }
+
+
         public void PLC_sendOrder(CommandInfo oneCmd)
         { 
             
@@ -4021,26 +4071,47 @@ namespace SockServer
         /// <param name="state">需要关闭的客户端会话对象</param>
         public void Close(TCPClientState state)
         {
-            if (state != null)
+            try
             {
-                //
-                string ipport = state.TcpClient.Client.RemoteEndPoint.ToString();
-                _commtoipportDict.TryRemove(state.clientComm.serial_num,out string olderip);
-                if (_linkedList.Contains(olderip))
+               if (state != null)
                 {
-                    _linkedList.Remove(olderip);
-                }
-                else if (_forbidedList.Contains(olderip))
-                {
-                    _forbidedList.Remove(olderip);
-                }
-                _PendingDict.TryRemove(olderip, out int  oldertime);
+                    //
+                    string ipport = state.TcpClient.Client.RemoteEndPoint.ToString();
+                    string commsn = null;
+                    commsn = state.clientComm.serial_num;
+                    if (commsn != null)
+                    {
+                        _commtoipportDict.TryRemove(commsn, out string olderip);
+                        removeClientEvent(commsn);
+                    }
+                    
+                    if (_linkedList.Contains(ipport))
+                    {
+                        _linkedList.Remove(ipport);
+                        removeClientEvent(state.clientComm.serial_num);
+                    }
+                    else if (_forbidedList.Contains(ipport))
+                    {
+                        _forbidedList.Remove(ipport);
+                    }
+                    _PendingDict.TryRemove(ipport, out int  oldertime);
+                    _iptoStateDict.TryRemove(ipport, out TCPClientState oldstate);
 
-                state.Close();
-                _clients.Remove(state);
-                _clientCount--;
-                //TODO 触发关闭事件
+                    state.Close();
+                    _clients.Remove(state);
+                    _clientCount--;
+                    //TODO 触发关闭事件
+                }
             }
+            catch(Exception err)
+            {
+                string msg = "关闭客户端发送错误：" + err.Message;
+                EveryDayLog.Write(msg);
+
+            }
+
+
+ 
         }
         /// <summary>
         /// 关闭所有的客户端会话,与所有的客户端连接会断开
@@ -4123,7 +4194,7 @@ namespace SockServer
         }
 
         /// <summary>
-        /// 状态,0-未连接，1-待连接，2-已连接，3-黑名单
+        /// 状态,0-未连接，1-待连接，2-已连接，3-黑名单,4-已断开
         /// </summary>
         private int _clientStatus;
 

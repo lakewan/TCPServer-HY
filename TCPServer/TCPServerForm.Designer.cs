@@ -1,4 +1,6 @@
-﻿namespace TCPServer
+﻿using System.Windows.Forms;
+
+namespace TCPServer
 {
     partial class TCPServerForm
     {
@@ -198,7 +200,7 @@
             this.lsbRecvMsg.Name = "lsbRecvMsg";
             this.lsbRecvMsg.Size = new System.Drawing.Size(510, 304);
             this.lsbRecvMsg.TabIndex = 16;
-
+            this.lsbRecvMsg.MouseDoubleClick += new System.Windows.Forms.MouseEventHandler(this.lsbRecvMsg_MouseDoubleClick);
             // 
             // grpRecvEncode
             // 

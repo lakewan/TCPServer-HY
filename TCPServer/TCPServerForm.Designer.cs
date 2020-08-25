@@ -436,7 +436,7 @@ namespace TCPServer
             this.Cursor = System.Windows.Forms.Cursors.Default;
             this.KeyPreview = true;
             this.Name = "TCPServerForm";
-            this.Text = "UDP服务器";
+            this.Text = "TCP服务器";
             this.grpRecvEncode.ResumeLayout(false);
             this.grpRecvEncode.PerformLayout();
             this.grpSendEncode.ResumeLayout(false);

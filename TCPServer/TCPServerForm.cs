@@ -56,9 +56,9 @@ namespace TCPServer
         {
 
             InitializeComponent();
-            txtPort.Text = "7000";
-            txtServerIP.Text = "192.168.1.11";
-            txtDataIP.Text = "localhost";
+            txtPort.Text = "";
+            txtServerIP.Text = "";
+            txtDataIP.Text = "";
             txtDataPort.Text = "3306";
             txtDataUser.Text = "root";
             txtDataPassword.Text = "111111";
@@ -83,8 +83,8 @@ namespace TCPServer
                     _tcpServer.removeClientEvent += new removeClientDelegate(lstClientRemove);
                     _tcpServer.Start();
                     _isListening = true;
-                    Thread clearLogTask = new Thread(clearLog);
-                    clearLogTask.Start();
+                    //Thread clearLogTask = new Thread(clearLog);
+                    //clearLogTask.Start();
 
                 }
                 else
@@ -110,7 +110,11 @@ namespace TCPServer
           
             _isListening = false;    //停止监听实例
             string msg = DateTime.Now.ToString() + " 服务器关闭监听";
-            _tcpServer.CloseAllClient();
+            if(_tcpServer!=null)
+            {
+                _tcpServer.CloseAllClient();
+            }
+            
             lsbRecvMsg.Items.Add(msg);
             EveryDayLog.Write(msg);
             
@@ -266,7 +270,7 @@ namespace TCPServer
         public void clearLog()
         {
             Thread.Sleep(3600000);
-            ResetTextBox(lsbRecvMsg);
+            //ResetTextBox(lsbRecvMsg);
 
         }
 

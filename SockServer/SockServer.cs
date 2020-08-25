@@ -41,7 +41,7 @@ namespace SockServer
         /// <summary>
         /// 服务器使用的异步TcpListener
         /// </summary>
-        private TcpListener _listener;
+        public TcpListener _listener;
         /// <summary>
         /// 客户端会话列表
         /// </summary>
@@ -145,8 +145,8 @@ namespace SockServer
                 _linked_timeout = Convert.ToInt32(iniFile.IniReadValue("Settings", "linked_overtime")) * 1000;
 
 
-                IPAddress Address = IPAddress.Parse(iniFile.IniReadValue("Listen", "serverip"));
-                int Port = Int32.Parse(iniFile.IniReadValue("Listen", "port"));
+                Address = IPAddress.Parse(iniFile.IniReadValue("Listen", "serverip"));
+                Port = Int32.Parse(iniFile.IniReadValue("Listen", "port"));
                 this.Encoding = Encoding.Default;
                 _connectStr = "server='" + dbserver + "'" + ";port= '" + dbport + "'" + ";user='" + dbuser + "'" + ";password='" + dbpassword + "'" + ";database= '" + dbdatabase + "'";
                 _maxCommID = 0;
@@ -160,7 +160,9 @@ namespace SockServer
                 _maxClient = 100000;
                 _clients = new List<object>();
                 _listener = new TcpListener(Address, Port);
-                _listener.AllowNatTraversal(true); 
+                _listener.AllowNatTraversal(true);
+                IsRunning = false;
+                
             }
             catch (Exception err)
             {
@@ -184,27 +186,25 @@ namespace SockServer
                 try
                 {
                     IsRunning = true;
-                    
-                    _listener.Start();
 
+                    _listener.Start();
                     _listener.BeginAcceptTcpClient(
-                      new AsyncCallback(HandleTcpClientAccepted), _listener);
+                    new AsyncCallback(HandleTcpClientAccepted), _listener);
                     //事件处理
                     ClientConnected += new EventHandler<AsyncEventArgs>(onClientConnected);
                     DataReceived += new EventHandler<AsyncEventArgs>(onDataReceived);
                     Thread iniDevThrd = new Thread(initDev);
                     iniDevThrd.Start();
-                    Thread.Sleep(20000);
+                    Thread.Sleep(2000);
                     //Task.Run(() => getCommand_Thrd());
                     Thread getCmdThrd = new Thread(getCommand_Thrd);
 
 
                     getCmdThrd.Start();
-                    Task.Run(() => MQTT_Connect());
+                    //Task.Run(() => MQTT_Connect());
 
                     Thread linkedOverTime = new Thread(overtimeClientThrd);
                     linkedOverTime.Start();
-
                     string msg = DateTime.Now.ToString() + " 服务器(" + this.Port + ")开始监听";
                     ShowMsgEvent(msg);
                     EveryDayLog.Write(msg);
@@ -254,6 +254,7 @@ namespace SockServer
                   = new TCPClientState(client, buffer);
                 state.lastTime = DateTime.Now.ToString();
                 state.faildTimes = 0;
+                state._isolder = false;
 
                 lock (_clients)
                 {
@@ -405,27 +406,41 @@ namespace SockServer
                             _iptoStateDict.TryRemove(clientip, out TCPClientState olderstate);
                             if(_commtoipportDict.TryRemove(gw_sn, out string olderipport))
                             {
-                                _clients.Remove(olderstate);
-                                olderstate.Close();
+                                //_clients.Remove(olderstate);
+                                //olderstate.Close();
+                                olderstate._isolder = true;
 
                                 msg = DateTime.Now.ToString() + " 接受心跳数据，待授权和已授权中同时存在：" + gw_sn+",删除已连接中的客户端";
                                 ShowMsgEvent(msg);
                                 EveryDayLog.Write(msg);
                                 Thread.Sleep(2000);
+                                try
+                                {
+                                    
+                                   
+                                    //增加新的连接
 
-                              //增加新的连接
-                                state.faildTimes = 0;
-                                state.lastTime = DateTime.Now.ToString();
-                                state.clientStatus = 2;
-                                state.clientComm = (CommDevice) clientComm;
-                                _PendingDict.TryRemove(ipport, out int b);
-                                _linkedList.Add(ipport);
-                                _commtoipportDict.TryAdd(gw_sn, ipport);
-                                _iptoStateDict.TryAdd(ipport, state);
-                                Task.Run(() => collectDataorState(state));
-                                msg = DateTime.Now.ToString() + " 从待授权客户端（" + gw_sn + "）接受心跳，删除旧的已授权连接，并将新连接从待授权转入已授权";
-                                ShowMsgEvent(msg);
-                                EveryDayLog.Write(msg);
+                                    state.faildTimes = 0;
+                                    state.lastTime = DateTime.Now.ToString();
+                                    state.clientStatus = 2;
+                                    state.clientComm = (CommDevice) clientComm;
+                                    state._isolder = false;
+                                    _PendingDict.TryRemove(ipport, out int b);
+                                    _linkedList.Add(ipport);
+                                    _commtoipportDict.TryAdd(gw_sn, ipport);
+                                     _iptoStateDict.TryAdd(ipport, state);
+                                    Task.Run(() => collectDataorState(state));
+                                    msg = DateTime.Now.ToString() + " 从待授权客户端（" + gw_sn + "）接受心跳，删除旧的已授权连接，并将新连接从待授权转入已授权";
+                                    ShowMsgEvent(msg);
+                                    EveryDayLog.Write(msg);
+                                }
+                                catch (Exception err)
+                                {
+                                    msg = DateTime.Now.ToString() + " 删除旧连接，添加新连接事变，监听失败" + err.Message;
+                                    ShowMsgEvent(msg);
+                                    EveryDayLog.Write(msg);
+                                }
+
 
                             }
                             
@@ -442,10 +457,10 @@ namespace SockServer
                                 state.lastTime = DateTime.Now.ToString();
                                 state.clientStatus = 2;
                                 state.clientComm = (CommDevice)clientComm;
+                                state._isolder = false;
                                 _linkedList.Add(ipport);
                                 _commtoipportDict.TryAdd(gw_sn, ipport);
                                 addClientEvent(gw_sn);
-
                                 Task.Run(() =>  collectDataorState(state));
                                 msg = DateTime.Now.ToString() + " 从待授权客户端（" + gw_sn + "）接受心跳，并将新连接从待授权转入已授权";
                                 ShowMsgEvent(msg);
@@ -479,7 +494,6 @@ namespace SockServer
                         if (!_forbidedList.Contains(ipport))
                         {
                             _forbidedList.Add(ipport);
-
                             msg = DateTime.Now.ToString() + " 待授权客户端（" + ipport + ")持续超时，转入黑名单";
                             ShowMsgEvent(msg);
                             EveryDayLog.Write(msg);
@@ -2011,7 +2025,7 @@ namespace SockServer
             string sOrder = sdata.Substring(2, 2);
             string sSQL = null;
             string msg = null;
-            if (sOrder.Equals("03") && sdata.Length > 30)
+            if (sOrder.Equals("10") && sdata.Length > 30)
             {
                 string oneData = null;
                 int[] tasklog = new int[32];
@@ -2035,7 +2049,7 @@ namespace SockServer
                 double ferter_real = tasklog[31] / 10;
                 string sArea=null;
                 string sFertcomm = null;
-                string bitArea = rightSub("000000000000000" + Convert.ToString((Convert.ToInt32(taskArea,16)), 2),16);
+                string bitArea = rightSub("000000000000000" + Convert.ToString((Convert.ToInt32(taskArea)), 2),16);
                 bitArea = FormatFunc.reverseString(bitArea);
                 if (comm.commtype.ToUpper().Equals("SFJ-0804"))
                 {
@@ -2081,7 +2095,7 @@ namespace SockServer
                     {
                         if (bitArea.Substring(i, 1).Equals("1"))
                         {
-                            sArea = sArea + bitArea.Substring(i, 1) + ",";
+                            sArea = sArea + (i+1).ToString() + ",";
                         }
                     }
                     if (sArea.Substring(sArea.Length - 1).Equals(","))
@@ -2124,9 +2138,10 @@ namespace SockServer
                 }
             }
             //#0000201910180001 020503e8ff000c79 020f0c500010023f02a6b1指令回传
-            else if (sOrder.ToUpper() == "0F" ||(sOrder == "05" && sdata.Substring(32,4).ToUpper() == "020F"))
+            else if (sOrder.ToUpper() == "0F" ||(sOrder == "05" && sdata.Length>52 && sdata.Substring(34,2).ToUpper() == "0F"))
             {
-                string devstate = sdata.Substring(-6, 2) + sdata.Substring(-8, 2);
+                sSQL = "insert into sfyth_device(id,State) values ";
+                string devstate = sdata.Substring(sdata.Length-6, 2) + sdata.Substring(sdata.Length - 8, 2);
                 devstate = FormatFunc.HexString2BinString(devstate, true, true);
                 devstate = rightSub("0000000000000000"+FormatFunc.reverseString(devstate),16);
                 for (int i = 0; i < 16; i++) //控制器扩展？？？
@@ -2141,7 +2156,8 @@ namespace SockServer
                 }
                 if (sSQL.Substring(sSQL.Length - 2).Equals("),"))
                 {
-                    sSQL = sSQL.Substring(0, sSQL.Length - 1);
+                    //sSQL = sSQL.Substring(0, sSQL.Length - 1);
+                    sSQL = sSQL.Substring(0, sSQL.Length - 1) + " ON DUPLICATE KEY UPDATE State = values(State)";
                     MySqlConnection conn = new MySqlConnection(_connectStr);
                     MySqlCommand myCmd = new MySqlCommand(sSQL, conn);
                     conn.Open();
@@ -2442,7 +2458,7 @@ namespace SockServer
             }
             int startCollect = collect_time - _get_state_time;
             int starttime = FormatFunc.getTimeStamp();
-            while (state != null && _commtoipportDict.TryGetValue(comm_sn, out string ipport))
+            while (state != null && _commtoipportDict.TryGetValue(comm_sn, out string ipport)&&state._isolder==false)
             {
                 int nowstamp = FormatFunc.getTimeStamp();
                 int timeGap = nowstamp - starttime;
@@ -2503,7 +2519,7 @@ namespace SockServer
 
             int startCollect = collect_time - _get_state_time;
             int starttime = FormatFunc.getTimeStamp();
-            while (state != null && _commtoipportDict.TryGetValue(comm_sn,out string ipport))
+            while (state != null && _commtoipportDict.TryGetValue(comm_sn,out string ipport)&&state._isolder == false)
             {
                 int nowstamp = FormatFunc.getTimeStamp();
                 int timeGap = nowstamp - starttime;
@@ -2563,7 +2579,7 @@ namespace SockServer
                 collect_time = 5 * 60 * 1000;
             }
 
-            while (state != null && _commtoipportDict.TryGetValue(comm_sn, out string ipport))
+            while (state != null && _commtoipportDict.TryGetValue(comm_sn, out string ipport)&&state._isolder == false)
             {
                 //开始采集数据，如果是Modbus协议，接受数据的数据域长度为1个字节，飞科的为2个字节
                 sendStr = state.clientComm.commaddr.ToString().PadLeft(2, '0');
@@ -2611,7 +2627,7 @@ namespace SockServer
                 collect_time = 5 * 60 * 1000;
             }
 
-            while (state != null && _commtoipportDict.TryGetValue(comm_sn, out string ipport))
+            while (state != null && _commtoipportDict.TryGetValue(comm_sn, out string ipport)&&state._isolder == false)
             {
                 //开始采集数据，如果是Modbus协议，接受数据的数据域长度为1个字节，飞科的为2个字节
                 sendStr = state.clientComm.commaddr.ToString().PadLeft(2, '0');
@@ -2638,7 +2654,7 @@ namespace SockServer
                 List<CommandInfo> cmdList = new List<CommandInfo>();
                 if (_communicationtype.Contains("1"))
                 {
-
+                    //未来增加重发次数
                     sSQL = "SELECT a.id,a.Device_ID,a.ActOrder,a.actparam,a.scheduledtime,a.createtime,c.serialNumber,b.code ";
                     sSQL += "FROM yw_c_control_log_tbl a ";
                     sSQL += "LEFT JOIN yw_d_controller_tbl b ON a.Device_ID = b.ID ";
@@ -2657,11 +2673,12 @@ namespace SockServer
                         {
                             msg = DateTime.Now.ToString() + " 发现有任务";
                             ShowMsgEvent(msg);
+                            int commandID=0;
                             EveryDayLog.Write(msg);
                             try
                             {
                                 string schdTime = (msdr.IsDBNull(4)) ? "" : msdr.GetString("scheduledtime");
-                                int commandID = (msdr.IsDBNull(0)) ? 0 : msdr.GetInt32("id");
+                                commandID = (msdr.IsDBNull(0)) ? 0 : msdr.GetInt32("id");
                                 comm_sn = (msdr.IsDBNull(6)) ? "" : msdr.GetString("serialNumber");
                                 int orderOverTime = 0;
                                 if (schdTime.Length > 0)
@@ -2669,34 +2686,8 @@ namespace SockServer
                                     orderOverTime = (int)DateTime.Now.Subtract(Convert.ToDateTime(schdTime)).Duration().TotalSeconds;
                                 }
                                 // 超时10分钟
-                                if (schdTime.Length > 0 && orderOverTime > 600)
-                                {
-                                    resultSQL = "update yw_c_control_log_tbl set ExecuteTime=now(),ExecuteResult='4' where id = '" + commandID.ToString() + "'";
-                                    using (MySqlConnection conn2 = new MySqlConnection(_connectStr))
-                                    {
-                                        if (conn2.State == ConnectionState.Closed)
-                                        {
-                                            conn2.Open();
-                                        }
-                                        MySqlCommand resultCmd = new MySqlCommand(resultSQL, conn2);
-                                        int iResult = resultCmd.ExecuteNonQuery();
-                                        if (iResult > 0)
-                                        {
-                                            msg = DateTime.Now.ToString() + " 物联网控制指令ID:" + commandID.ToString() + " 超时关闭";
-                                            ShowMsgEvent(msg);
-                                            EveryDayLog.Write(msg);
-                                        }
-                                        else
-                                        {
-                                            msg = DateTime.Now.ToString() + " 物联网控制指令ID:" + commandID.ToString() + " 超时关闭失败";
-                                            ShowMsgEvent(msg);
-                                            EveryDayLog.Write(msg);
-
-                                        }
-                                    }
-
-                                }
-                                else if (schdTime.Length == 0 || (orderOverTime < 600 && orderOverTime >= 0))
+                                //未超时10分钟
+                                if (schdTime.Length == 0 || (orderOverTime < 600 && orderOverTime >= 0))
                                 {
                                     if (_commtoipportDict.TryGetValue(comm_sn, out string ipport))
                                     {
@@ -2738,6 +2729,35 @@ namespace SockServer
                                 ShowMsgEvent(msg);
                                 EveryDayLog.Write(msg);
                             }
+                            finally
+                            {
+                                if (commandID > 0)
+                                {
+                                    resultSQL = "update yw_c_control_log_tbl set ExecuteTime=now(),ExecuteResult='4' where id = '" + commandID.ToString() + "'";
+                                    using (MySqlConnection conn2 = new MySqlConnection(_connectStr))
+                                {
+                                    if (conn2.State == ConnectionState.Closed)
+                                    {
+                                        conn2.Open();
+                                    }
+                                    MySqlCommand resultCmd = new MySqlCommand(resultSQL, conn2);
+                                    int iResult = resultCmd.ExecuteNonQuery();
+                                    if (iResult > 0)
+                                    {
+                                        msg = DateTime.Now.ToString() + " 物联网控制指令ID:" + commandID.ToString() + " 已执行或超时关闭";
+                                        ShowMsgEvent(msg);
+                                        EveryDayLog.Write(msg);
+                                    }
+                                    else
+                                    {
+                                        msg = DateTime.Now.ToString() + " 物联网控制指令ID:" + commandID.ToString() + " 已执行或超时关闭失败";
+                                        ShowMsgEvent(msg);
+                                        EveryDayLog.Write(msg);
+                                    }
+                                }
+                                }
+
+                            }
 
 
                         }
@@ -2749,7 +2769,7 @@ namespace SockServer
                     sSQL = "SELECT a.ID, a.Device_ID,ActOrder,b.Device_Address,a.ScheduledTime,a.CreateTime,c.PLC_Number FROM sfyth_control_log a ";
                     sSQL += "LEFT JOIN sfyth_device b ON a.Device_ID = b.ID  LEFT JOIN sfyth_plc c ON a.PLC_Number = c.PLC_Number ";
                     sSQL += "WHERE a.ActState = 0 AND (ISNULL(a.ScheduledTime) OR (NOW() > a.ScheduledTime AND DATE_ADD(a.ScheduledTime,INTERVAL 10 MINUTE)>NOW())) ";
-
+  
                     using (MySqlConnection conn = new MySqlConnection(_connectStr))
                     {
                         if (conn.State == ConnectionState.Closed)
@@ -2760,44 +2780,20 @@ namespace SockServer
                         MySqlDataReader msdr = myCmd.ExecuteReader();
                         while (msdr.Read())
                         {
+                            int commandID = 0;
                             try
                             {
                                 string schdTime = (msdr.IsDBNull(4)) ? "" : msdr.GetString("scheduledtime");
-                                int commandID = (msdr.IsDBNull(0)) ? 0 : msdr.GetInt32("id");
+                                commandID = (msdr.IsDBNull(0)) ? 0 : msdr.GetInt32("id");
                                 int orderOverTime = 0;
+                                comm_sn = (msdr.IsDBNull(6)) ? "" : msdr.GetString("PLC_Number");
                                 if (schdTime.Length > 0)
                                 {
                                     orderOverTime = (int)DateTime.Now.Subtract(Convert.ToDateTime(schdTime)).Duration().TotalSeconds;
                                 }
                                 // 超时10分钟
-                                if (schdTime.Length > 0 && orderOverTime > 600)
-                                {
-                                    resultSQL = "update yw_c_control_log_tbl set ExecuteTime=now(),ExecuteResult='4' where id = '" + commandID.ToString() + "'";
-                                    using (MySqlConnection conn2 = new MySqlConnection(_connectStr))
-                                    {
-                                        if (conn2.State == ConnectionState.Closed)
-                                        {
-                                            conn2.Open();
-                                        }
-                                        MySqlCommand resultCmd = new MySqlCommand(resultSQL, conn2);
-                                        int iResult = resultCmd.ExecuteNonQuery();
-                                        if (iResult > 0)
-                                        {
-                                            msg = DateTime.Now.ToString() + " 水肥机控制指令ID:" + commandID.ToString() + " 超时关闭";
-                                            ShowMsgEvent(msg);
-                                            EveryDayLog.Write(msg);
-                                        }
-                                        else
-                                        {
-                                            msg = DateTime.Now.ToString() + " 水肥机控制指令ID:" + commandID.ToString() + " 超时关闭失败";
-                                            ShowMsgEvent(msg);
-                                            EveryDayLog.Write(msg);
-
-                                        }
-                                    }
-
-                                }
-                                else if (schdTime.Length == 0 || (orderOverTime < 600 && orderOverTime >= 0))
+                                //不超时或预定时间为空
+                                if (schdTime.Length == 0 || (orderOverTime < 600 && orderOverTime >= 0))
                                 {
                                     if (_commtoipportDict.TryGetValue(comm_sn, out string ipport))
                                     {
@@ -2839,6 +2835,34 @@ namespace SockServer
                                 ShowMsgEvent(msg);
                                 EveryDayLog.Write(msg);
                             }
+                            finally
+                            {
+                                if (commandID > 0)
+                                {
+                                    resultSQL = "update sfyth_control_log set ExecuteTime=now(),ActState='30' where id = '" + commandID.ToString() + "'";
+                                    using (MySqlConnection conn2 = new MySqlConnection(_connectStr))
+                                    {
+                                        if (conn2.State == ConnectionState.Closed)
+                                        {
+                                            conn2.Open();
+                                        }
+                                        MySqlCommand resultCmd = new MySqlCommand(resultSQL, conn2);
+                                        int iResult = resultCmd.ExecuteNonQuery();
+                                        if (iResult > 0)
+                                        {
+                                            msg = DateTime.Now.ToString() + " 水肥机控制指令ID:" + commandID.ToString() + " 已执行或超时关闭";
+                                            ShowMsgEvent(msg);
+                                            EveryDayLog.Write(msg);
+                                        }
+                                        else
+                                        {
+                                            msg = DateTime.Now.ToString() + " 水肥机控制指令ID:" + commandID.ToString() + " 已执行或超时关闭失败";
+                                            ShowMsgEvent(msg);
+                                            EveryDayLog.Write(msg);
+                                        }
+                                    }
+                                }
+                            }
 
 
                         }
@@ -2858,44 +2882,21 @@ namespace SockServer
                         MySqlDataReader msdr = myCmd.ExecuteReader();
                         while (msdr.Read())
                         {
+                            int  commandID = 0;
+                            comm_sn = (msdr.IsDBNull(9)) ? "" : msdr.GetString("PLC_Number");
                             try
                             {
-                                string schdTime = ((msdr.IsDBNull(0)) ? "" : msdr.GetString("T_Date")) + " " + ((msdr.IsDBNull(0)) ? "" : msdr.GetString("T_Start"));
-                                int commandID = (msdr.IsDBNull(0)) ? 0 : msdr.GetInt32("T_ID");
+                                string schdTime = ((msdr.IsDBNull(0)) ? "" : msdr.GetString("T_Date")).Substring(0, 10) + " " + ((msdr.IsDBNull(0)) ? "" : msdr.GetString("T_Start"));
+                                commandID = (msdr.IsDBNull(0)) ? 0 : msdr.GetInt32("T_ID");
                                 int orderOverTime = 0;
-                                if (schdTime.Length <= 1)
+                                if (schdTime.Length >= 1)
                                 {
                                     orderOverTime = (int)DateTime.Now.Subtract(Convert.ToDateTime(schdTime)).Duration().TotalSeconds;
                                 }
                                 // 超时10分钟
-                                if (schdTime.Length > 1 && orderOverTime > 600)
-                                {
-                                    resultSQL = "UPDATE sfyth_task SET T_State='1' where T_ID = '" + commandID.ToString() + "'";
-                                    using (MySqlConnection conn2 = new MySqlConnection(_connectStr))
-                                    {
-                                        if (conn2.State == ConnectionState.Closed)
-                                        {
-                                            conn2.Open();
-                                        }
-                                        MySqlCommand resultCmd = new MySqlCommand(resultSQL, conn2);
-                                        int iResult = resultCmd.ExecuteNonQuery();
-                                        if (iResult > 0)
-                                        {
-                                            msg = DateTime.Now.ToString() + " 水肥机任务ID:" + commandID.ToString() + " 超时关闭";
-                                            ShowMsgEvent(msg);
-                                            EveryDayLog.Write(msg);
-                                        }
-                                        else
-                                        {
-                                            msg = DateTime.Now.ToString() + " 水肥机任务ID:" + commandID.ToString() + " 超时关闭失败";
-                                            ShowMsgEvent(msg);
-                                            EveryDayLog.Write(msg);
-
-                                        }
-                                    }
-
-                                }
-                                else if (schdTime.Length > 1 || (orderOverTime < 600 && orderOverTime >= 0))
+                                
+                                //未超时10分钟或者
+                                if (schdTime.Length > 1 || (orderOverTime < 600 && orderOverTime >= 0))
                                 {
                                     if (_commtoipportDict.TryGetValue(comm_sn, out string ipport))
                                     {
@@ -2905,7 +2906,7 @@ namespace SockServer
                                             CommandInfo cmdInfo = new CommandInfo();
                                             cmdInfo.commandID = (msdr.IsDBNull(8)) ? 0 : msdr.GetInt32("T_ID");
                                             cmdInfo.actOrder = "SEND-TASK";
-                                            cmdInfo.actparam = (msdr.IsDBNull(1)) ? 0 : Convert.ToInt32(msdr.GetString("T_Interval"));
+                                            cmdInfo.warterInterval = (msdr.IsDBNull(1)) ? 0 : Convert.ToInt32(msdr.GetString("T_Interval"));
                                             cmdInfo.scheduledTime = ((msdr.IsDBNull(6)) ? "" : msdr.GetString("T_Date")); ;
                                             cmdInfo.createTime = (msdr.IsDBNull(0)) ? "" : msdr.GetString("T_Start");
                                             cmdInfo.serialNumber = (msdr.IsDBNull(9)) ? "" : msdr.GetString("PLC_Number");
@@ -2941,6 +2942,35 @@ namespace SockServer
                                 ShowMsgEvent(msg);
                                 EveryDayLog.Write(msg);
                             }
+                            finally
+                            {
+                                if (commandID > 0)
+                                {
+                                    resultSQL = "update sfyth_task set T_State='1' where T_ID = '" + commandID.ToString() + "'";
+                                    using (MySqlConnection conn2 = new MySqlConnection(_connectStr))
+                                    {
+                                        if (conn2.State == ConnectionState.Closed)
+                                        {
+                                            conn2.Open();
+                                        }
+                                        MySqlCommand resultCmd = new MySqlCommand(resultSQL, conn2);
+                                        int iResult = resultCmd.ExecuteNonQuery();
+                                        if (iResult > 0)
+                                        {
+                                            msg = DateTime.Now.ToString() + " 物联网控制指令ID:" + commandID.ToString() + " 已执行或超时关闭";
+                                            ShowMsgEvent(msg);
+                                            EveryDayLog.Write(msg);
+                                        }
+                                        else
+                                        {
+                                            msg = DateTime.Now.ToString() + " 物联网控制指令ID:" + commandID.ToString() + " 已执行或超时关闭失败";
+                                            ShowMsgEvent(msg);
+                                            EveryDayLog.Write(msg);
+                                        }
+                                    }
+                                }
+
+                            }
 
 
                         }
@@ -2951,10 +2981,11 @@ namespace SockServer
                 while (cmdList.Count > 0)
                 {
                     CommandInfo cmdInfo = cmdList[0];
+                    cmdList.RemoveAt(0);
                     TCPClientState client = cmdInfo.client;
                     if (client != null)
                     {
-                        string comm_type = client.clientComm.commtype;
+                        string comm_type = client.clientComm.commtype.ToUpper();
                         switch (comm_type)
                         {
                             case "PLC":
@@ -2972,7 +3003,8 @@ namespace SockServer
                             case "YYC":
                                 //Task.Run(() => YYC_sendOrder(cmdInfo));
                                 break;
-                            case "SFJ":
+                            case "SFJ-0804":
+                            case "SFJ-1200":
                                 Task.Run(() => SFJ_sendOrder(cmdInfo));
                                 break;
                             case "DYC":
@@ -2988,7 +3020,7 @@ namespace SockServer
                                 break;
                         }
                     }
-                    cmdList.RemoveAt(0);
+                    
                 }
                 Thread.Sleep(_get_command_time);
             }
@@ -3016,6 +3048,20 @@ namespace SockServer
                         }
                     }
                 }
+                foreach (TCPClientState client in _clients)
+                { 
+                    if (client._isolder)
+                    {
+                        int tp = (int)DateTime.Now.Subtract(Convert.ToDateTime(client.lastTime)).Duration().TotalSeconds;
+                        if (tp > 900 || (!client.TcpClient.Connected))
+                        {
+                            client.Close();
+                            _clients.Remove(client);
+                        }
+
+                    }
+                }
+
                 Thread.Sleep(600000);//10分钟检测1次
             }
         }
@@ -3481,7 +3527,7 @@ namespace SockServer
             string sFert = null;
             sSQL = "";
             
-            CommDevice oneComm = (CommDevice)getCommbySN(oneCmd.serialNumber,1);
+            CommDevice oneComm = (CommDevice)getCommbySN(oneCmd.serialNumber,2);
             ////if (oneCmd.actparam > 0)
             ////{
             ////    Thread.Sleep(oneCmd.actparam);//延迟
@@ -3496,7 +3542,7 @@ namespace SockServer
                     sSendStr += "FF00";
                     sSendStr += FormatFunc.ToModbusCRC16(sSendStr, true);
                     Send(oneCmd.client, sSendStr);
-                    sSQL = "update sfyth_control_log set ExecuteTime=now(),ActState=‘1’  where id = '" + oneCmd.commandID.ToString() + "'";
+                    sSQL = "update sfyth_control_log set ExecuteTime=now(),ActState='1'  where id = '" + oneCmd.commandID.ToString() + "'";
                     break;
                 case "AC-CLOSE":
                     oneControl = (ControlDevice)findDevbyID(oneCmd.deviceID, 20);
@@ -3506,14 +3552,14 @@ namespace SockServer
                     sSendStr += "0000";
                     sSendStr += FormatFunc.ToModbusCRC16(sSendStr, true);
                     Send(oneCmd.client, sSendStr);
-                    sSQL = "update sfyth_control_log set ExecuteTime=now(),ActState=‘1’  where id = '" + oneCmd.commandID.ToString() + "'";
+                    sSQL = "update sfyth_control_log set ExecuteTime=now(),ActState='1'  where id = '" + oneCmd.commandID.ToString() + "'";
                     break;
                 case "SEND-TASK":
                     if (oneCmd.waterNumSet != 0 && oneCmd.fertNumSet != 0)
                     {
                         break;
                     }
-                    else if (oneCmd.waterNumSet == 0 && oneCmd.waterNumSet == 0)
+                    else if (oneCmd.waterNumSet == 0 && oneCmd.warterInterval == 0)
                     {
                         break;
                     }
@@ -3523,6 +3569,7 @@ namespace SockServer
                         {
                             string [] tempArea = oneCmd.taskArea.Split(',');
                             char[] cArea = new char[8]{ '0', '0', '0', '0', '0', '0', '0', '0'};
+                            //根据灌区id,确定灌区的16进制数
                             foreach (string oneArea in tempArea)
                             {
                                 oneControl = (ControlDevice)findDevbyID(Convert.ToInt32(oneArea), 20);
@@ -3585,7 +3632,8 @@ namespace SockServer
                                 oneControl = (ControlDevice)findDevbyID(Convert.ToInt32(oneArea), 20);
                                 cArea[oneControl.devaddr - 1] = '1';
                             }
-                            sArea = FormatFunc.reverseString(sArea).PadLeft(16, '0');
+                            sArea = FormatFunc.reverseString((string.Join("", cArea)));
+                            //sArea = FormatFunc.reverseString(sArea).PadLeft(16, '0');
                         }
                     }
 
@@ -3595,26 +3643,29 @@ namespace SockServer
                     sSendStr += "0129";     //#起始地址,40298(减1)
                     sSendStr += "000D";     //寄存器数量n
                     sSendStr += "1A";       //字节数2*n
-                    sSendStr += "0001";     //远程控制
-                    sSendStr += "0001";     
-                    sSendStr += "0001";
-                    sSendStr += outs.PadLeft(4, '0');
-                    sSendStr += "0000";
-                    sSendStr += Convert.ToString(oneCmd.waterNumSet * 10, 16).PadLeft(4, '0');
-                    sSendStr += Convert.ToString(oneCmd.warterInterval, 16).PadLeft(4, '0');
-                    sSendStr += Convert.ToString(oneCmd.fertNumSet *10, 16).PadLeft(4, '0');
-                    sSendStr += "000000000000000000000000";
-                    sSendStr += oneCmd.taskType.PadLeft(4,'0');
+                    sSendStr += "0001";     //远程控制    寄存器40298
+                    sSendStr += outs.PadLeft(4, '0');   //设定灌区
+                    sSendStr += "0000"; //任务状态
+                    sSendStr += Convert.ToString(oneCmd.waterNumSet * 10, 16).PadLeft(4, '0');  //灌溉量
+                    sSendStr += Convert.ToString(oneCmd.warterInterval, 16).PadLeft(4, '0');    //灌溉时长
+                    sSendStr += Convert.ToString(oneCmd.fertNumSet *10, 16).PadLeft(4, '0');    //施肥量
+                    sSendStr += "0000"; //设定年
+                    sSendStr += "0000"; //设定月
+                    sSendStr += "0000"; //设定日
+                    sSendStr += "0000"; //设定时
+                    sSendStr += "0000"; //设定分
+                    sSendStr += "0000"; //设定秒
+                    sSendStr += oneCmd.taskType.PadLeft(4,'0'); //任务类型：0-灌溉，1-施肥
                     sSendStr += FormatFunc.ToModbusCRC16(sSendStr, true);
                     Send(oneCmd.client, sSendStr);
-                    sSQL = "UPDATE sfyth_task SET T_State=‘1’  where T_ID = '" + oneCmd.commandID.ToString() + "'";
+                    sSQL = "UPDATE sfyth_task SET T_State='1'  where T_ID = '" + oneCmd.commandID.ToString() + "'";
                     break;
                 default:
                     break;
             }
             try
             {
-                //sSQL = "update sfyth_control_log set ExecuteTime=now(),ActState=‘1’  where id = '" + oneCmd.commandID.ToString() + "'";
+                //sSQL = "update sfyth_control_log set ExecuteTime=now(),ActState='1'  where id = '" + oneCmd.commandID.ToString() + "'";
                 using (MySqlConnection conn2 = new MySqlConnection(_connectStr))
                 {
                     if (conn2.State == ConnectionState.Closed)
@@ -4180,6 +4231,8 @@ namespace SockServer
         /// </summary>
         public TcpClient TcpClient { get; private set; }
 
+        
+
         /// <summary>
         /// 获取缓冲区
         /// </summary>
@@ -4197,6 +4250,8 @@ namespace SockServer
         /// 状态,0-未连接，1-待连接，2-已连接，3-黑名单,4-已断开
         /// </summary>
         private int _clientStatus;
+
+        public bool _isolder;
 
         /// <summary>
         /// 最新接受数据时间

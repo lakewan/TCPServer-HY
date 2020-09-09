@@ -15,7 +15,7 @@ using System.Threading;
 using dayLogFiles; 
 using DataFormat;
 
-using SockServer;
+using NewSockServer;
 
 
 namespace TCPServer
@@ -37,7 +37,7 @@ namespace TCPServer
 
     public partial class TCPServerForm : Form
     {
-        private static SockServer.AsyncTCPServer _tcpServer;
+        private static NewSockServer.AsyncTCPServer _tcpServer;
         private static EndPoint remoteClient;
         private static string dataPort;
         private static string dataUser;
@@ -77,7 +77,7 @@ namespace TCPServer
             {
                 if (!_isListening)
                 {
-                    _tcpServer = new SockServer.AsyncTCPServer();
+                    _tcpServer = new NewSockServer.AsyncTCPServer();
                     _tcpServer.ShowMsgEvent += new ShowMessageDelegate(lsbShowMessage);
                     _tcpServer.addClientEvent += new addClientDelegate(lstClientAdd);
                     _tcpServer.removeClientEvent += new removeClientDelegate(lstClientRemove);

@@ -13,6 +13,10 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SockServer", "SockServer\So
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ToolsLibrary", "ToolsLibrary\ToolsLibrary.csproj", "{80BD7D6C-C450-47A1-B9EF-E7BDC7279A98}"
 EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "SocketServer1", "SocketServer1\SocketServer1.csproj", "{B23512B0-D348-405F-ACC2-0572FF4D5B11}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "NewSockServer", "NewSockServer\NewSockServer.csproj", "{3F02E2A8-FB25-401F-8BD9-2F34EB14D13A}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -39,6 +43,14 @@ Global
 		{80BD7D6C-C450-47A1-B9EF-E7BDC7279A98}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{80BD7D6C-C450-47A1-B9EF-E7BDC7279A98}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{80BD7D6C-C450-47A1-B9EF-E7BDC7279A98}.Release|Any CPU.Build.0 = Release|Any CPU
+		{B23512B0-D348-405F-ACC2-0572FF4D5B11}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{B23512B0-D348-405F-ACC2-0572FF4D5B11}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{B23512B0-D348-405F-ACC2-0572FF4D5B11}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{B23512B0-D348-405F-ACC2-0572FF4D5B11}.Release|Any CPU.Build.0 = Release|Any CPU
+		{3F02E2A8-FB25-401F-8BD9-2F34EB14D13A}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{3F02E2A8-FB25-401F-8BD9-2F34EB14D13A}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{3F02E2A8-FB25-401F-8BD9-2F34EB14D13A}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{3F02E2A8-FB25-401F-8BD9-2F34EB14D13A}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

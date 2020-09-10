@@ -108,6 +108,13 @@
       <Project>{3f02e2a8-fb25-401f-8bd9-2f34eb14d13a}</Project>
       <Name>NewSockServer</Name>
     </ProjectReference>
+    <ProjectReference Include="..\SockServer\SockServer.csproj">
+      <Project>{3b7b2b4e-1996-4e11-8200-8130ebdde7ea}</Project>
+      <Name>SockServer</Name>
+    </ProjectReference>
+  </ItemGroup>
+  <ItemGroup>
+    <WCFMetadata Include="Connected Services\" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>

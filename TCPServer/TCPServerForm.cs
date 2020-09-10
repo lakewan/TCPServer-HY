@@ -15,6 +15,7 @@ using System.Threading;
 using dayLogFiles; 
 using DataFormat;
 
+//using NewSockServer;
 using NewSockServer;
 
 
@@ -38,7 +39,7 @@ namespace TCPServer
     public partial class TCPServerForm : Form
     {
         private static NewSockServer.AsyncTCPServer _tcpServer;
-        private static EndPoint remoteClient;
+        //private static EndPoint remoteClient;
         private static string dataPort;
         private static string dataUser;
         private static string dataPassword;
@@ -59,10 +60,10 @@ namespace TCPServer
             txtPort.Text = "";
             txtServerIP.Text = "";
             txtDataIP.Text = "";
-            txtDataPort.Text = "3306";
-            txtDataUser.Text = "root";
-            txtDataPassword.Text = "111111";
-            txtDB.Text = "pbsxtweb_udp";
+            txtDataPort.Text = "";
+            txtDataUser.Text = "";
+            txtDataPassword.Text = "";
+            txtDB.Text = "";
             radRecvAscii.Checked = false;
             radRecvHex.Checked = true;
             chkAutoReply.Checked = false;
@@ -276,7 +277,12 @@ namespace TCPServer
 
         private void btnSendto_Click(object sender, EventArgs e)
         {
-
+            string comm_sn = lstClient.SelectedItem.ToString();
+            string sOrder = txtSendMsg.Text.Replace(" ","");
+            if(comm_sn.Length>0 && sOrder.Length>0)
+            {
+               
+            }
         }
 
 

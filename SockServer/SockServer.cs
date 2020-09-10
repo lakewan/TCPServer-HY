@@ -68,13 +68,13 @@ namespace SockServer
         public event ShowMessageDelegate ShowMsgEvent;
         public event addClientDelegate addClientEvent;
         public event removeClientDelegate removeClientEvent;
-       
+
 
         public List<string> _linkedList = new List<string>();
         public List<string> _forbidedList = new List<string>();
-        private ConcurrentDictionary<string, int> _PendingDict = new ConcurrentDictionary<string, int>();                      
-        private ConcurrentDictionary<string, TCPClientState> _iptoStateDict = new ConcurrentDictionary<string, TCPClientState>();         
-        private ConcurrentDictionary<string, string> _commtoipportDict = new ConcurrentDictionary<string, string>();         
+        private ConcurrentDictionary<string, int> _PendingDict = new ConcurrentDictionary<string, int>();
+        private ConcurrentDictionary<string, TCPClientState> _iptoStateDict = new ConcurrentDictionary<string, TCPClientState>();
+        private ConcurrentDictionary<string, string> _commtoipportDict = new ConcurrentDictionary<string, string>();
 
         #region Properties
         /// <summary>
@@ -94,7 +94,7 @@ namespace SockServer
         /// </summary>
         public Encoding Encoding { get; set; }
 
-       #endregion
+        #endregion
 
         #region 构造函数
 
@@ -124,7 +124,7 @@ namespace SockServer
         /// <param name="listenPort">监听的端口</param>
         public AsyncTCPServer()
         {
-            try 
+            try
             {
                 string currPath = Directory.GetCurrentDirectory();
                 IniFile iniFile = new IniFile(currPath + "\\config.ini");
@@ -139,8 +139,8 @@ namespace SockServer
                 _pendingTimes = Convert.ToInt32(iniFile.IniReadValue("Settings", "pending_times"));
                 _pendingTimeout = Convert.ToInt32(iniFile.IniReadValue("Settings", "pending_timeout"));
                 _releaseInterval = Convert.ToInt32(iniFile.IniReadValue("Settings", "realive_interval"));
-                _collect_time = Convert.ToInt32(iniFile.IniReadValue("Settings", "collect_time"))*1000;
-                 _get_state_time= Convert.ToInt32(iniFile.IniReadValue("Settings", "get_state_time"))*1000;
+                _collect_time = Convert.ToInt32(iniFile.IniReadValue("Settings", "collect_time")) * 1000;
+                _get_state_time = Convert.ToInt32(iniFile.IniReadValue("Settings", "get_state_time")) * 1000;
                 _get_command_time = Convert.ToInt32(iniFile.IniReadValue("Settings", "get_command_time")) * 1000;
                 _linked_timeout = Convert.ToInt32(iniFile.IniReadValue("Settings", "linked_overtime")) * 1000;
 
@@ -162,14 +162,14 @@ namespace SockServer
                 _listener = new TcpListener(Address, Port);
                 _listener.AllowNatTraversal(true);
                 IsRunning = false;
-                
+
             }
             catch (Exception err)
             {
-                string msg = DateTime.Now.ToString() + " 初始化服务器(" + this.Port + ")失败"+err.Message;
+                string msg = DateTime.Now.ToString() + " 初始化服务器(" + this.Port + ")失败" + err.Message;
                 EveryDayLog.Write(msg);
             }
-            
+
         }
 
         #endregion
@@ -209,13 +209,13 @@ namespace SockServer
                     ShowMsgEvent(msg);
                     EveryDayLog.Write(msg);
                 }
-                catch(Exception err)
+                catch (Exception err)
                 {
-                    string msg = DateTime.Now.ToString() + " 服务器(" + this.Port + ")监听失败"+err.Message;
+                    string msg = DateTime.Now.ToString() + " 服务器(" + this.Port + ")监听失败" + err.Message;
                     ShowMsgEvent(msg);
                     EveryDayLog.Write(msg);
                 }
-                
+
             }
         }
 
@@ -308,7 +308,7 @@ namespace SockServer
                 byte[] buff = new byte[recv];
                 Buffer.BlockCopy(state.Buffer, 0, buff, 0, recv);
                 //触发数据收到事件
-                AsyncEventArgs argstate = new AsyncEventArgs(BitConverter.ToString(buff),state);
+                AsyncEventArgs argstate = new AsyncEventArgs(BitConverter.ToString(buff), state);
                 argstate._msg = FormatFunc.byteToHexStr(buff);
                 RaiseDataReceived(argstate);
 
@@ -321,30 +321,30 @@ namespace SockServer
             TCPClientState state = e._state;
             string ipport = state.TcpClient.Client.RemoteEndPoint.ToString();
             string msg = null;
-            if (_PendingDict.TryGetValue(ipport,out int pendingTimes))
+            if (_PendingDict.TryGetValue(ipport, out int pendingTimes))
             {
                 msg = DateTime.Now.ToString() + " 新连接接入时待接受已有客户端：" + ipport;
                 ShowMsgEvent(msg);
                 EveryDayLog.Write(msg);
-                
+
                 if (_iptoStateDict.TryRemove(ipport, out TCPClientState olderstate))
                 {
-                    state.lastTime = olderstate.lastTime;   
+                    state.lastTime = olderstate.lastTime;
                     _clients.Remove(olderstate);
                     olderstate.Close();
                     msg = DateTime.Now.ToString() + " 新连接接入时关闭待接受客户端：" + ipport;
                     ShowMsgEvent(msg);
                     EveryDayLog.Write(msg);
                     int tp = (int)DateTime.Now.Subtract(Convert.ToDateTime(state.lastTime)).Duration().TotalSeconds;
-                    if (pendingTimes + 1 > _pendingTimes || (tp >_pendingTimeout))
+                    if (pendingTimes + 1 > _pendingTimes || (tp > _pendingTimeout))
                     {
                         state.Close();
                     }
-                    else 
+                    else
                     {
                         state.clientStatus = 1;
                         _clients.Add(state);
-                       _PendingDict.TryAdd(ipport, pendingTimes + 1);
+                        _PendingDict.TryAdd(ipport, pendingTimes + 1);
                         _iptoStateDict.TryAdd(ipport, state);
                         msg = DateTime.Now.ToString() + " 更新连接：" + ipport;
                         ShowMsgEvent(msg);
@@ -364,7 +364,7 @@ namespace SockServer
                 ShowMsgEvent(msg);
                 EveryDayLog.Write(msg);
             }
-        
+
         }
 
 
@@ -372,7 +372,7 @@ namespace SockServer
         public void onDataReceived(object sender, AsyncEventArgs e)
         {
             TCPClientState state = e._state;
-            string sRecvData = e._msg.Replace(" ","");
+            string sRecvData = e._msg.Replace(" ", "");
             string ipport = state.TcpClient.Client.RemoteEndPoint.ToString();
             string msg = null;
             msg = DateTime.Now.ToString() + " 接受数据：" + sRecvData;
@@ -380,12 +380,12 @@ namespace SockServer
             EveryDayLog.Write(msg);
             Object clientComm = null;
             string gw_sn = null;
-            if (isHeartBeat(sRecvData)!=null)
+            if (isHeartBeat(sRecvData) != null)
             {
                 clientComm = isHeartBeat(sRecvData);
-                gw_sn = ((CommDevice) clientComm).serial_num;
+                gw_sn = ((CommDevice)clientComm).serial_num;
             }
-            
+
             //连接缓冲字典
             if (_PendingDict.TryGetValue(ipport, out int connectTimes))
             {
@@ -404,31 +404,31 @@ namespace SockServer
                             //删除老的连接
                             _linkedList.Remove(clientip);
                             _iptoStateDict.TryRemove(clientip, out TCPClientState olderstate);
-                            if(_commtoipportDict.TryRemove(gw_sn, out string olderipport))
+                            if (_commtoipportDict.TryRemove(gw_sn, out string olderipport))
                             {
                                 //_clients.Remove(olderstate);
                                 //olderstate.Close();
                                 olderstate._isolder = true;
 
-                                msg = DateTime.Now.ToString() + " 接受心跳数据，待授权和已授权中同时存在：" + gw_sn+",删除已连接中的客户端";
+                                msg = DateTime.Now.ToString() + " 接受心跳数据，待授权和已授权中同时存在：" + gw_sn + ",删除已连接中的客户端";
                                 ShowMsgEvent(msg);
                                 EveryDayLog.Write(msg);
                                 Thread.Sleep(2000);
                                 try
                                 {
-                                    
-                                   
+
+
                                     //增加新的连接
 
                                     state.faildTimes = 0;
                                     state.lastTime = DateTime.Now.ToString();
                                     state.clientStatus = 2;
-                                    state.clientComm = (CommDevice) clientComm;
+                                    state.clientComm = (CommDevice)clientComm;
                                     state._isolder = false;
                                     _PendingDict.TryRemove(ipport, out int b);
                                     _linkedList.Add(ipport);
                                     _commtoipportDict.TryAdd(gw_sn, ipport);
-                                     _iptoStateDict.TryAdd(ipport, state);
+                                    _iptoStateDict.TryAdd(ipport, state);
                                     Task.Run(() => collectDataorState(state));
                                     msg = DateTime.Now.ToString() + " 从待授权客户端（" + gw_sn + "）接受心跳，删除旧的已授权连接，并将新连接从待授权转入已授权";
                                     ShowMsgEvent(msg);
@@ -443,11 +443,11 @@ namespace SockServer
 
 
                             }
-                            
+
                         }
                         else //新连接
                         {
-                            if (sRecvData.Substring(0,12).ToUpper().Equals("150122220010"))
+                            if (sRecvData.Substring(0, 12).ToUpper().Equals("150122220010"))
                             {
                                 Send(state, "15012222000180");
                             }
@@ -461,7 +461,7 @@ namespace SockServer
                                 _linkedList.Add(ipport);
                                 _commtoipportDict.TryAdd(gw_sn, ipport);
                                 addClientEvent(gw_sn);
-                                Task.Run(() =>  collectDataorState(state));
+                                Task.Run(() => collectDataorState(state));
                                 msg = DateTime.Now.ToString() + " 从待授权客户端（" + gw_sn + "）接受心跳，并将新连接从待授权转入已授权";
                                 ShowMsgEvent(msg);
                                 EveryDayLog.Write(msg);
@@ -483,7 +483,7 @@ namespace SockServer
                     ShowMsgEvent(msg);
                     EveryDayLog.Write(msg);
 
-                    int tsp = (int) DateTime.Now.Subtract(Convert.ToDateTime(state.lastTime)).Duration().TotalSeconds;
+                    int tsp = (int)DateTime.Now.Subtract(Convert.ToDateTime(state.lastTime)).Duration().TotalSeconds;
                     //超时转入黑名单
                     if (tsp > _pendingTimeout)
                     {
@@ -498,7 +498,7 @@ namespace SockServer
                             ShowMsgEvent(msg);
                             EveryDayLog.Write(msg);
                         }
-                        
+
                     }
 
                 }
@@ -507,11 +507,11 @@ namespace SockServer
             else if (_linkedList.Contains(ipport))
             {
                 //心跳数据
-                if (gw_sn!=null)
+                if (gw_sn != null)
                 {
                     state.faildTimes++;
                     state.lastTime = DateTime.Now.ToString();
-                    msg = DateTime.Now.ToString() + " 从授权客户端（"+gw_sn+")接受心跳";
+                    msg = DateTime.Now.ToString() + " 从授权客户端（" + gw_sn + ")接受心跳";
                     ShowMsgEvent(msg);
                     EveryDayLog.Write(msg);
                 }
@@ -528,7 +528,7 @@ namespace SockServer
                     {
                         bComm = true;
                     }
-                    if(!bComm)
+                    if (!bComm)
                     {
                         state.faildTimes++;
                         msg = DateTime.Now.ToString() + " 授权客户端（" + state.clientComm.serial_num + ")获取非法数据" + sRecvData;
@@ -604,9 +604,9 @@ namespace SockServer
                     }
 
                 }
-                   
+
             }
-            else if(_forbidedList.Contains(ipport))
+            else if (_forbidedList.Contains(ipport))
             {
                 try
                 {
@@ -614,8 +614,8 @@ namespace SockServer
                     msg = DateTime.Now.ToString() + " 从黑名单客户端（" + gw_sn + ")接受数据";
                     ShowMsgEvent(msg);
                     EveryDayLog.Write(msg);
-                    int tsp = (int) DateTime.Now.Subtract(Convert.ToDateTime(state.lastTime)).Duration().TotalSeconds;
-                    if (_iptoStateDict == null || (!_iptoStateDict.TryGetValue(ipport,out TCPClientState onestate)))
+                    int tsp = (int)DateTime.Now.Subtract(Convert.ToDateTime(state.lastTime)).Duration().TotalSeconds;
+                    if (_iptoStateDict == null || (!_iptoStateDict.TryGetValue(ipport, out TCPClientState onestate)))
                     {
                         if (!_iptoStateDict.TryAdd(ipport, state))
                         {
@@ -628,7 +628,7 @@ namespace SockServer
                     if (tsp > _releaseInterval)
                     {
                         _forbidedList.Remove(ipport);
-                        _iptoStateDict.TryRemove(ipport,out TCPClientState s);
+                        _iptoStateDict.TryRemove(ipport, out TCPClientState s);
                         gw_sn = s.clientComm.serial_num;
                         _commtoipportDict.TryRemove(gw_sn, out string b);
                         _clients.Remove(state);
@@ -638,20 +638,20 @@ namespace SockServer
                         EveryDayLog.Write(msg);
                     }
                 }
-                catch(Exception err)
+                catch (Exception err)
                 {
-                    msg = DateTime.Now.ToString() + " 处理黑名单客户端（" + gw_sn + ")数据："+sRecvData+"失败："+err.Message;
+                    msg = DateTime.Now.ToString() + " 处理黑名单客户端（" + gw_sn + ")数据：" + sRecvData + "失败：" + err.Message;
                     ShowMsgEvent(msg);
                     EveryDayLog.Write(msg);
                 }
-                
+
             }
             else
             {
                 state.faildTimes = 0;
                 state.clientStatus = 1;
-                int tsp = (int) DateTime.Now.Subtract(Convert.ToDateTime(state.lastTime)).Duration().TotalSeconds;
-                if (tsp> _pendingTimeout)
+                int tsp = (int)DateTime.Now.Subtract(Convert.ToDateTime(state.lastTime)).Duration().TotalSeconds;
+                if (tsp > _pendingTimeout)
                 {
                     _iptoStateDict.TryRemove(ipport, out TCPClientState s);
                     _clients.Remove(s);
@@ -659,7 +659,7 @@ namespace SockServer
                 }
 
             }
-                
+
         }
 
 
@@ -675,12 +675,12 @@ namespace SockServer
             string commSN = null;
             try
             {
-                if (recvdata.Length==16 || recvdata.Length == 44)
+                if (recvdata.Length == 16 || recvdata.Length == 44)
                 {
-                    if (recvdata.Substring(0, 12).ToUpper().Equals("150122220010") && recvdata.Length ==44) //昆仑海岸网关请求连接
+                    if (recvdata.Substring(0, 12).ToUpper().Equals("150122220010") && recvdata.Length == 44) //昆仑海岸网关请求连接
                     {
                         //150122220010 31323030323031393036313231303938
-                        commSN = FormatFunc.HexToAscii(recvdata.Substring(12)); 
+                        commSN = FormatFunc.HexToAscii(recvdata.Substring(12));
                         ///////////////////////////////发送回应数据
                     }
                     else if (recvdata.Length == 16)
@@ -693,11 +693,11 @@ namespace SockServer
                         {
                             return one;
                         }
-                
+
                     }
                 }
             }
-            catch(Exception err)
+            catch (Exception err)
             {
                 string msg = DateTime.Now.ToString() + " 判断心跳数据失败： " + err.Message;
                 ShowMsgEvent(msg);
@@ -1089,12 +1089,12 @@ namespace SockServer
                 Thread.Sleep(28800000);
             }
         }
-            /// <summary>
-            /// 发送数据
-            /// </summary>
-            /// <param name="state">接收数据的客户端会话</param>
-            /// <param name="data">数据报文</param>
-            public void Send(TCPClientState state, string data)
+        /// <summary>
+        /// 发送数据
+        /// </summary>
+        /// <param name="state">接收数据的客户端会话</param>
+        /// <param name="data">数据报文</param>
+        public void Send(TCPClientState state, string data)
         {
             byte[] a = FormatFunc.strToHexByte(data);
             Send(state.TcpClient, FormatFunc.strToHexByte(data));
@@ -1118,7 +1118,7 @@ namespace SockServer
         /// <param name="data">报文</param>
         public void Send(TcpClient client, byte[] data)
         {
-            string msg=null;
+            string msg = null;
             try
             {
                 if (!IsRunning)
@@ -1168,7 +1168,7 @@ namespace SockServer
         //    TcpClient handler = (TcpClient)ar.AsyncState;
         //    // Complete sending the data to the remote device.     
         //    bytesSent = handler.Client.EndSend(ar);
-           
+
         //    //handler.Shutdown(SocketShutdown.Both);
         //    //handler.Close();
         //}
@@ -1196,19 +1196,19 @@ namespace SockServer
             if (sdata.Substring(2, 2).ToUpper().Equals("0F"))
             {
                 toHandleData = sdata.Substring(14, sdata.Length - 18);
-                iLen =  Convert.ToInt16(sdata.Substring(8, 4), 16);
+                iLen = Convert.ToInt16(sdata.Substring(8, 4), 16);
             }
-            else if (sdata.Substring(2, 2).ToUpper().Equals("05") )
+            else if (sdata.Substring(2, 2).ToUpper().Equals("05"))
             {
                 if (sdata.Length > 21)
                 {
                     if (sdata.Substring(18, 2).ToUpper().Equals("0F"))
                     {
                         toHandleData = sdata.Substring(30, sdata.Length - 34);
-                        iLen =  Convert.ToInt16(sdata.Substring(24, 4), 16);
+                        iLen = Convert.ToInt16(sdata.Substring(24, 4), 16);
                     }
                 }
-               
+
             }
             if (toHandleData != null)
             {
@@ -1221,8 +1221,8 @@ namespace SockServer
                 }
                 for (int i = 0; i < iLen; i++)
                 {
-                    try 
-                    { 
+                    try
+                    {
                         Object oneDev = findDevbyAddr(i + 1, comm.serial_num, 10);
                         if (oneDev != null)
                         {
@@ -1238,7 +1238,7 @@ namespace SockServer
                                     sOneState = "2";
 
                                 }
-                            
+
                             }
                             //行程开关，开-基数端口，关-偶数端口
                             else if (oneControl.devtype.ToUpper().Equals("3"))
@@ -1267,26 +1267,26 @@ namespace SockServer
                                 }
 
                             }
-                            sSQL+= "('" + oneControl.devid + "','" + sOneState + "'),";
+                            sSQL += "('" + oneControl.devid + "','" + sOneState + "'),";
                         }
                         else
                         {
                             continue;
                         }
                     }
-                    catch(Exception err)
+                    catch (Exception err)
                     {
-                        msg = DateTime.Now.ToString() + " 行程开关状态数据解析失败："+err.Message;
+                        msg = DateTime.Now.ToString() + " 行程开关状态数据解析失败：" + err.Message;
                         ShowMsgEvent(msg);
                         EveryDayLog.Write(msg);
                     }
 
                 }
-                if (sSQL.Substring(sSQL.Length-2).Equals("),"))
+                if (sSQL.Substring(sSQL.Length - 2).Equals("),"))
                 {
-                    sSQL = sSQL.Substring(0, sSQL.Length - 1)+ " ON DUPLICATE KEY UPDATE onoff = values(onoff);";
+                    sSQL = sSQL.Substring(0, sSQL.Length - 1) + " ON DUPLICATE KEY UPDATE onoff = values(onoff);";
                     MySqlConnection conn = new MySqlConnection(_connectStr);
-                    MySqlCommand myCmd = new MySqlCommand(sSQL, conn); 
+                    MySqlCommand myCmd = new MySqlCommand(sSQL, conn);
                     conn.Open();
                     try
                     {
@@ -1298,9 +1298,9 @@ namespace SockServer
                             EveryDayLog.Write(msg);
                         }
                     }
-                    catch(Exception err)
+                    catch (Exception err)
                     {
-                        msg = DateTime.Now.ToString() + " PLC通讯设备(" +comm.serial_num+")更新状态失败："+ sSQL;
+                        msg = DateTime.Now.ToString() + " PLC通讯设备(" + comm.serial_num + ")更新状态失败：" + sSQL;
                         ShowMsgEvent(msg);
                         EveryDayLog.Write(msg);
                     }
@@ -1322,7 +1322,7 @@ namespace SockServer
             int iLen = Convert.ToInt16(sdata.Substring(4, 2), 16);
             string sAddr = sdata.Substring(0, 2);
             string sOrder = sdata.Substring(2, 2);
-            string datatemp = sdata.Substring(6,sdata.Length-6);
+            string datatemp = sdata.Substring(6, sdata.Length - 6);
             if (iLen * 2 == (sdata.Length - 6))
             {
                 string sSQL = null;
@@ -1334,10 +1334,10 @@ namespace SockServer
                     for (int i = 0; i < 8; i++)
                     {
                         Object oneDev = findDevbyAddr(i + 1, comm.serial_num, 11);
-                        
+
                         if (oneDev != null)
-                        { 
-                            SensorDevice oneSensor = (SensorDevice) oneDev;
+                        {
+                            SensorDevice oneSensor = (SensorDevice)oneDev;
                             string sensorRecv = datatemp.Substring(0, 8);
                             datatemp = datatemp.Substring(8, datatemp.Length - 8);
                             string sensorFormat = ("00000000" + FormatFunc.HexString2BinString(sensorRecv.Substring(2, 2), true, true));
@@ -1347,8 +1347,8 @@ namespace SockServer
                             int longdata = 0;   //长整数数值标识，0-双字节，1-四字节
                             int highofdata = 0;     //四字节数字节标识，0-低2字节，1-高2字节
                             int dotbit = 0;     //小数位数
-                            string sensorData=null;
-                            double sensorValue=0;  //传感器真实值
+                            string sensorData = null;
+                            double sensorValue = 0;  //传感器真实值
                             string sSensorValue = null;
 
                             try
@@ -1402,12 +1402,12 @@ namespace SockServer
                                 }
                                 else //四个字节
                                 {
-                                    if (highofdata==0)
+                                    if (highofdata == 0)
                                     {
                                         sensorData = sdata.Substring(i * 8 + 18, 4) + sensorRecv.Substring(4, 4);
 
                                     }
-                                    else 
+                                    else
                                     {
                                         sensorData = sensorRecv.Substring(4, 4) + sdata.Substring(i * 8 + 18, 4);
                                     }
@@ -1419,7 +1419,7 @@ namespace SockServer
                                     {
                                         sensorValue = Convert.ToInt32(sensorData, 16) / Math.Pow(10, dotbit);
                                     }
-                                    datatemp=datatemp.Substring(8,datatemp.Length-8);
+                                    datatemp = datatemp.Substring(8, datatemp.Length - 8);
                                 }
                             }
 
@@ -1470,7 +1470,7 @@ namespace SockServer
                                     EveryDayLog.Write(msg);
                                     break;
                             }
-                            sSQL+= "('" + oneSensor.devid + "','" + oneSensor.devcode + "',now(),'" + sSensorValue + "','" + oneSensor.blockid + "'),";
+                            sSQL += "('" + oneSensor.devid + "','" + oneSensor.devcode + "',now(),'" + sSensorValue + "','" + oneSensor.blockid + "'),";
                         }
                     }
                     if (sSQL.Substring(sSQL.Length - 2).Equals("),"))
@@ -1484,7 +1484,7 @@ namespace SockServer
                             int iSQLResult = myCmd.ExecuteNonQuery();
                             if (iSQLResult > 0)
                             {
-                                msg = DateTime.Now.ToString() + " KLC设备（"+comm.serial_num+"）插入最新数据成功:" + sSQL;
+                                msg = DateTime.Now.ToString() + " KLC设备（" + comm.serial_num + "）插入最新数据成功:" + sSQL;
                                 ShowMsgEvent(msg);
                                 EveryDayLog.Write(msg);
                             }
@@ -1530,7 +1530,7 @@ namespace SockServer
                                 ShowMsgEvent(msg);
                                 EveryDayLog.Write(msg);
                             }
-                            sSQL+= "('" + oneControl.devid +"','" + sstate + "'),";
+                            sSQL += "('" + oneControl.devid + "','" + sstate + "'),";
 
                         }
                     }
@@ -1572,7 +1572,7 @@ namespace SockServer
             //020300207fff02ea00000000000000000000000000e400de00007fff0000003f00020290f305
             if (sdata.Substring(sdata.Length - 4).ToUpper().Equals(FormatFunc.ToModbusCRC16(sdata.Substring(0, sdata.Length - 4)).ToUpper()))
             {
-               
+
                 string sOrder = sdata.Substring(2, 2);
                 string sSQL = null;
                 sSQL = "INSERT INTO yw_c_sensordata_tbl (Device_ID,Device_Code,ReportTime,ReportValue,Block_ID) values ";
@@ -1582,17 +1582,17 @@ namespace SockServer
                     string sensorRecv = null;
                     double sensorValue = 0;
                     string sensorData = null;
-                    for (int i =0; i<16; i++)
+                    for (int i = 0; i < 16; i++)
                     {
                         Object oneDev = findDevbyAddr(i + 1, comm.serial_num, 11);
-                        if(oneDev != null)
+                        if (oneDev != null)
                         {
-                            SensorDevice oneSensor = (SensorDevice) oneDev;
+                            SensorDevice oneSensor = (SensorDevice)oneDev;
                             sensorRecv = sdata.Substring(i * 4 + 8, 4);   //这是和新普惠的区别，飞科数据长度占2个字节
 
                             if (sensorRecv.ToUpper().ToUpper().Equals("7FFF"))
                             {
-                                sensorValue = Convert.ToInt32(sensorRecv,16);
+                                sensorValue = Convert.ToInt32(sensorRecv, 16);
                             }
                             switch (oneSensor.devformula)
                             {
@@ -1657,7 +1657,7 @@ namespace SockServer
                                     break;
 
                             }
-                            sSQL+= "('" + oneSensor.devid + "','" + oneSensor.devcode + "',now(),'" + sensorValue.ToString() + "','" + oneSensor.blockid + "'),";
+                            sSQL += "('" + oneSensor.devid + "','" + oneSensor.devcode + "',now(),'" + sensorValue.ToString() + "','" + oneSensor.blockid + "'),";
                         }
                     }
                     if (sSQL.Substring(sSQL.Length - 2).Equals("),"))
@@ -1694,14 +1694,14 @@ namespace SockServer
                 else if (sOrder.Equals("70"))
                 {
                     sSQL = "insert into yw_d_controller_tbl(id,onoff) values ";
-                    for (int i =0;i<16;i++)
+                    for (int i = 0; i < 16; i++)
                     {
                         string sstate = null;
                         Object oneDev = findDevbyAddr(i + 1, comm.serial_num, 10);
                         if (oneDev != null)
                         {
                             ControlDevice oneControl = (ControlDevice)oneDev;
-                            if (sdata.Substring(i*2+4,2).Equals("1"))
+                            if (sdata.Substring(i * 2 + 4, 2).Equals("1"))
                             {
                                 sstate = "1";
                             }
@@ -1709,7 +1709,7 @@ namespace SockServer
                             {
                                 sstate = "2";
                             }
-                            else 
+                            else
                             {
                                 msg = DateTime.Now.ToString() + " KLC设备（" + comm.serial_num + "）获取状态错误标识:" + sdata.Substring(i * 2 + 4, 2);
                                 ShowMsgEvent(msg);
@@ -1777,7 +1777,7 @@ namespace SockServer
                             sensorRecv = sdata.Substring(i * 4 + 6, 4);   //这是和飞科的区别，新普惠数据长度占1个字节
                             if (!(sensorRecv.ToUpper().Equals("7FFF")))
                             {
-                                sensorValue = Convert.ToInt32(sensorRecv,16);
+                                sensorValue = Convert.ToInt32(sensorRecv, 16);
                             }
                             switch (oneSensor.devformula)
                             {
@@ -1842,9 +1842,9 @@ namespace SockServer
                                     break;
 
                             }
-                            sSQL+= "('" + oneSensor.devid + "','" + oneSensor.devcode + "',now(),'" + sensorValue.ToString() + "','" + oneSensor.blockid + "'),";
+                            sSQL += "('" + oneSensor.devid + "','" + oneSensor.devcode + "',now(),'" + sensorValue.ToString() + "','" + oneSensor.blockid + "'),";
                         }
-                     }
+                    }
                     if (sSQL.Substring(sSQL.Length - 2).Equals("),"))
                     {
                         sSQL = sSQL.Substring(0, sSQL.Length - 1);
@@ -1875,7 +1875,7 @@ namespace SockServer
                             }
                         }
                     }
-                 }
+                }
             }
         }
 
@@ -1899,7 +1899,7 @@ namespace SockServer
                         Object oneDev = findDevbyAddr(i + 1, comm.serial_num, 11);
                         if (oneDev != null)
                         {
-                            
+
                             SensorDevice oneSensor = (SensorDevice)oneDev;
                             sensorValue = FormatFunc.hextofloat(sensorRecv);
                             switch (oneSensor.devformula)
@@ -1980,7 +1980,7 @@ namespace SockServer
                                     break;
 
                             }
-                            sSQL+= "('" + oneSensor.devid + "','" + oneSensor.devcode + "',now(),'" + sensorData + "','" + oneSensor.blockid + "'),";
+                            sSQL += "('" + oneSensor.devid + "','" + oneSensor.devcode + "',now(),'" + sensorData + "','" + oneSensor.blockid + "'),";
                         }
                     }
                     if (sSQL.Substring(sSQL.Length - 2).Equals("),"))
@@ -2029,44 +2029,44 @@ namespace SockServer
             {
                 string oneData = null;
                 int[] tasklog = new int[32];
-                for(int i=0; i<32;i++)
+                for (int i = 0; i < 32; i++)
                 {
-                    tasklog[i] = Convert.ToInt16(sdata.Substring(i * 4 + 14,4),16);
+                    tasklog[i] = Convert.ToInt16(sdata.Substring(i * 4 + 14, 4), 16);
                 }
                 string isRemote = tasklog[0].ToString();
                 string taskArea = tasklog[1].ToString();
                 int taskstate = tasklog[2];
-                double water_set = tasklog[3]/ 10;
+                double water_set = tasklog[3] / 10;
                 int inteval_set = tasklog[4];
-                double ferter_set = tasklog[5]/ 10;
+                double ferter_set = tasklog[5] / 10;
                 string tasktype = tasklog[12].ToString();
                 string taskid = tasklog[16].ToString();
-                string taskdate = tasklog[17].ToString() + "-" + rightSub(("00" + tasklog[18].ToString()),2) +'-' + rightSub(("00" + tasklog[19].ToString()),2);
-                string starttime = rightSub("00" + tasklog[20].ToString(),2) +":" + rightSub("00" + tasklog[21].ToString(),2) + ":" + rightSub("00" + tasklog[22].ToString(),2);
-                string endtime = rightSub("00" + tasklog[26].ToString(),2) +":" + rightSub("00" + tasklog[27].ToString(),2) + ":" + rightSub("00" + tasklog[28].ToString(),2);
+                string taskdate = tasklog[17].ToString() + "-" + rightSub(("00" + tasklog[18].ToString()), 2) + '-' + rightSub(("00" + tasklog[19].ToString()), 2);
+                string starttime = rightSub("00" + tasklog[20].ToString(), 2) + ":" + rightSub("00" + tasklog[21].ToString(), 2) + ":" + rightSub("00" + tasklog[22].ToString(), 2);
+                string endtime = rightSub("00" + tasklog[26].ToString(), 2) + ":" + rightSub("00" + tasklog[27].ToString(), 2) + ":" + rightSub("00" + tasklog[28].ToString(), 2);
                 double water_real = tasklog[29] / 10;
                 int interval_real = tasklog[30];
                 double ferter_real = tasklog[31] / 10;
-                string sArea=null;
+                string sArea = null;
                 string sFertcomm = null;
-                string bitArea = rightSub("000000000000000" + Convert.ToString((Convert.ToInt32(taskArea)), 2),16);
+                string bitArea = rightSub("000000000000000" + Convert.ToString((Convert.ToInt32(taskArea)), 2), 16);
                 bitArea = FormatFunc.reverseString(bitArea);
                 if (comm.commtype.ToUpper().Equals("SFJ-0804"))
                 {
-                    for (int i = 0; i<8;i++)
+                    for (int i = 0; i < 8; i++)
                     {
-                        if (bitArea.Substring(i,1).Equals("1"))
+                        if (bitArea.Substring(i, 1).Equals("1"))
                         {
                             sArea = sArea + bitArea.Substring(i, 1) + ",";
                         }
                     }
-                    if (sArea.Substring(sArea.Length-1).Equals(","))
+                    if (sArea.Substring(sArea.Length - 1).Equals(","))
                     {
                         sArea = sArea.Substring(0, sArea.Length - 1);
                     }
                     if (tasktype.Equals("1"))
                     {
-                        if (bitArea.Substring(8,1).Equals("1"))
+                        if (bitArea.Substring(8, 1).Equals("1"))
                         {
                             sFertcomm = sFertcomm + "A,";
                         }
@@ -2095,7 +2095,7 @@ namespace SockServer
                     {
                         if (bitArea.Substring(i, 1).Equals("1"))
                         {
-                            sArea = sArea + (i+1).ToString() + ",";
+                            sArea = sArea + (i + 1).ToString() + ",";
                         }
                     }
                     if (sArea.Substring(sArea.Length - 1).Equals(","))
@@ -2103,13 +2103,13 @@ namespace SockServer
                         sArea = sArea.Substring(0, sArea.Length - 1);
                     }
                 }
-                if (taskstate> 0 && taskstate <3)
+                if (taskstate > 0 && taskstate < 3)
                 {
                     sSQL = "INSERT INTO sfyth_log (R_Start,R_End,R_Interval,R_Gquantity,R_Squantity,T_Area,T_Fertilize,R_State,T_Date,T_ID,T_Type,Company_ID,PLC_Number,DO_Type) ";
-                    sSQL+= "values('" + starttime + "','" + endtime + "','" + interval_real.ToString() + "','" + water_real.ToString() + "','" + ferter_real.ToString() + "','" + sArea + "',";
-                    sSQL+= "'" + sFertcomm + "','" +taskstate.ToString() + "','" + taskdate + "','" + taskid.ToString() + "','" + tasktype.ToString() + "','" + comm.companyid + "','" + comm.serial_num + "','" + isRemote.ToString() + "')";
+                    sSQL += "values('" + starttime + "','" + endtime + "','" + interval_real.ToString() + "','" + water_real.ToString() + "','" + ferter_real.ToString() + "','" + sArea + "',";
+                    sSQL += "'" + sFertcomm + "','" + taskstate.ToString() + "','" + taskdate + "','" + taskid.ToString() + "','" + tasktype.ToString() + "','" + comm.companyid + "','" + comm.serial_num + "','" + isRemote.ToString() + "')";
                 }
-                
+
                 MySqlConnection conn = new MySqlConnection(_connectStr);
                 MySqlCommand myCmd = new MySqlCommand(sSQL, conn);
                 conn.Open();
@@ -2138,19 +2138,19 @@ namespace SockServer
                 }
             }
             //#0000201910180001 020503e8ff000c79 020f0c500010023f02a6b1指令回传
-            else if (sOrder.ToUpper() == "0F" ||(sOrder == "05" && sdata.Length>52 && sdata.Substring(34,2).ToUpper() == "0F"))
+            else if (sOrder.ToUpper() == "0F" || (sOrder == "05" && sdata.Length > 52 && sdata.Substring(34, 2).ToUpper() == "0F"))
             {
                 sSQL = "insert into sfyth_device(id,State) values ";
-                string devstate = sdata.Substring(sdata.Length-6, 2) + sdata.Substring(sdata.Length - 8, 2);
+                string devstate = sdata.Substring(sdata.Length - 6, 2) + sdata.Substring(sdata.Length - 8, 2);
                 devstate = FormatFunc.HexString2BinString(devstate, true, true);
-                devstate = rightSub("0000000000000000"+FormatFunc.reverseString(devstate),16);
+                devstate = rightSub("0000000000000000" + FormatFunc.reverseString(devstate), 16);
                 for (int i = 0; i < 16; i++) //控制器扩展？？？
                 {
                     object oneDev = findDevbyAddr(i + 1, comm.serial_num, 20);
                     if (oneDev != null)
                     {
                         ControlDevice oneControl = (ControlDevice)oneDev;
-                        sSQL+= "('" + oneControl.devid + "','" + devstate[i].ToString() + "'),";
+                        sSQL += "('" + oneControl.devid + "','" + devstate[i].ToString() + "'),";
                     }
 
                 }
@@ -2196,16 +2196,16 @@ namespace SockServer
             string sOrder = sdata.Substring(2, 2);
             string sSQL = null;
             string msg = null;
-            if (sOrder.Equals("03") &&  sdata.Length==44)
+            if (sOrder.Equals("03") && sdata.Length == 44)
             {
                 sSQL = "INSERT INTO yw_c_sensordata_tbl (Device_ID,Device_Code,ReportTime,ReportValue,Block_ID) values ";
-                string sensorRecv = sdata.Substring(6,4);
-                double sensorValue = Convert.ToInt32(sensorRecv,16);
+                string sensorRecv = sdata.Substring(6, 4);
+                double sensorValue = Convert.ToInt32(sensorRecv, 16);
                 object oneDev = findDevbyAddr(1, comm.serial_num, 11);
                 if (oneDev != null)
                 {
                     SensorDevice oneSensor = (SensorDevice)oneDev;
-                    sSQL+= "('" + oneSensor.devid + "','" + oneSensor.devcode + "',now(),'" + sensorValue.ToString() + "','" + oneSensor.blockid + "'),";
+                    sSQL += "('" + oneSensor.devid + "','" + oneSensor.devcode + "',now(),'" + sensorValue.ToString() + "','" + oneSensor.blockid + "'),";
                 }
 
                 if (sSQL.Substring(sSQL.Length - 2).Equals("),"))
@@ -2239,18 +2239,18 @@ namespace SockServer
                     }
                 }
             }
-            
+
         }
-       public void MQTT_Connect()
+        public void MQTT_Connect()
         {
             Thread.Sleep(60000);
             string topic = null;
             // MQTT服务器IP地址
-            string host ="119.3.215.67";
+            string host = "119.3.215.67";
             int serverPort = 1883;
             // 实例化Mqtt客户端 
             MqttClient client = new MqttClient(host, Convert.ToInt32(serverPort), false, null, null, MqttSslProtocols.None);
-            
+
             // 注册接收消息事件 
             client.MqttMsgPublishReceived += MQT_handlerecv;
 
@@ -2326,7 +2326,7 @@ namespace SockServer
                                 case "soilC":
                                     sSensorValue = kvp.Value;
                                     break;
-                                case  "co2":
+                                case "co2":
                                     sSensorValue = kvp.Value;
                                     break;
                                 case "dPH":
@@ -2372,7 +2372,7 @@ namespace SockServer
                                     break;
                             }
                             sSQL = sSQL + "('" + _sensorList[_sensorIndex].devid.ToString() + "','" + _sensorList[_sensorIndex].devcode + "', Now() ,'" + sSensorValue + "','" + _sensorList[_sensorIndex].blockid.ToString() + "'),";
-                         }
+                        }
                     }
                     if (sSQL.Substring(sSQL.Length - 2).Equals("),"))
                     {
@@ -2458,7 +2458,7 @@ namespace SockServer
             }
             int startCollect = collect_time - _get_state_time;
             int starttime = FormatFunc.getTimeStamp();
-            while (state != null && _commtoipportDict.TryGetValue(comm_sn, out string ipport)&&state._isolder==false)
+            while (state != null && _commtoipportDict.TryGetValue(comm_sn, out string ipport) && state._isolder == false)
             {
                 int nowstamp = FormatFunc.getTimeStamp();
                 int timeGap = nowstamp - starttime;
@@ -2507,9 +2507,9 @@ namespace SockServer
             int collect_time = 0;
             string sendStr = null;
             //采集时间>5分钟
-            if (comm_interval > 5*60*1000)
+            if (comm_interval > 5 * 60 * 1000)
             {
-                collect_time = (int) comm_interval;
+                collect_time = (int)comm_interval;
             }
             else
             {
@@ -2519,28 +2519,28 @@ namespace SockServer
 
             int startCollect = collect_time - _get_state_time;
             int starttime = FormatFunc.getTimeStamp();
-            while (state != null && _commtoipportDict.TryGetValue(comm_sn,out string ipport)&&state._isolder == false)
+            while (state != null && _commtoipportDict.TryGetValue(comm_sn, out string ipport) && state._isolder == false)
             {
                 int nowstamp = FormatFunc.getTimeStamp();
                 int timeGap = nowstamp - starttime;
                 if (timeGap >= startCollect)
                 {
                     //开始采集数据
-                    Thread.Sleep(collect_time- nowstamp);
-                    sendStr = state.clientComm.commaddr.ToString().PadLeft(2,'0');
-                    sendStr +=  "03";
+                    Thread.Sleep(collect_time - nowstamp);
+                    sendStr = state.clientComm.commaddr.ToString().PadLeft(2, '0');
+                    sendStr += "03";
                     sendStr += "0000"; //起始地址
-                    sendStr +=  "0010"; //数量
-                    sendStr +=  FormatFunc.ToModbusCRC16(sendStr,true);
+                    sendStr += "0010"; //数量
+                    sendStr += FormatFunc.ToModbusCRC16(sendStr, true);
                     Send(state, sendStr);
                     string msg = DateTime.Now.ToString() + " FKC设备（" + comm_sn + "）发送数据采集指令:" + sendStr;
                     ShowMsgEvent(msg);
                     EveryDayLog.Write(msg);
                     // 重置启动时间
                     starttime = FormatFunc.getTimeStamp();
-                    
+
                 }
-                else if(timeGap >=_get_state_time)
+                else if (timeGap >= _get_state_time)
                 {
                     //开始获取状态
                     sendStr = "00700054";
@@ -2572,22 +2572,22 @@ namespace SockServer
             //采集时间>5分钟
             if (comm_interval > 5 * 60 * 1000)
             {
-                collect_time = (int) comm_interval;
+                collect_time = (int)comm_interval;
             }
             else
             {
                 collect_time = 5 * 60 * 1000;
             }
 
-            while (state != null && _commtoipportDict.TryGetValue(comm_sn, out string ipport)&&state._isolder == false)
+            while (state != null && _commtoipportDict.TryGetValue(comm_sn, out string ipport) && state._isolder == false)
             {
                 //开始采集数据，如果是Modbus协议，接受数据的数据域长度为1个字节，飞科的为2个字节
                 sendStr = state.clientComm.commaddr.ToString().PadLeft(2, '0');
-                    sendStr += "03";
-                    sendStr += "0000"; //起始地址
-                    sendStr += "0010"; //数量
-                    sendStr += FormatFunc.ToModbusCRC16(sendStr, true);
-                    Send(state, sendStr);
+                sendStr += "03";
+                sendStr += "0000"; //起始地址
+                sendStr += "0010"; //数量
+                sendStr += FormatFunc.ToModbusCRC16(sendStr, true);
+                Send(state, sendStr);
                 string msg = DateTime.Now.ToString() + " XPC设备（" + comm_sn + "）发送数据采集指令:" + sendStr;
                 ShowMsgEvent(msg);
                 EveryDayLog.Write(msg);
@@ -2608,7 +2608,7 @@ namespace SockServer
         }
 
 
-        
+
 
         public void YYC_getStateorDataThrd(TCPClientState state)
         {
@@ -2620,14 +2620,14 @@ namespace SockServer
             //采集时间>5分钟
             if (comm_interval > 5 * 60 * 1000)
             {
-                collect_time =(int) comm_interval;
+                collect_time = (int)comm_interval;
             }
             else
             {
                 collect_time = 5 * 60 * 1000;
             }
 
-            while (state != null && _commtoipportDict.TryGetValue(comm_sn, out string ipport)&&state._isolder == false)
+            while (state != null && _commtoipportDict.TryGetValue(comm_sn, out string ipport) && state._isolder == false)
             {
                 //开始采集数据，如果是Modbus协议，接受数据的数据域长度为1个字节，飞科的为2个字节
                 sendStr = state.clientComm.commaddr.ToString().PadLeft(2, '0');
@@ -2645,8 +2645,8 @@ namespace SockServer
         public void getCommand_Thrd()
         {
             while (IsRunning)
-            { 
-                
+            {
+
                 string msg = null;
                 string sSQL = null;
                 string resultSQL = null;
@@ -2673,7 +2673,7 @@ namespace SockServer
                         {
                             msg = DateTime.Now.ToString() + " 发现有任务";
                             ShowMsgEvent(msg);
-                            int commandID=0;
+                            int commandID = 0;
                             EveryDayLog.Write(msg);
                             try
                             {
@@ -2735,26 +2735,26 @@ namespace SockServer
                                 {
                                     resultSQL = "update yw_c_control_log_tbl set ExecuteTime=now(),ExecuteResult='4' where id = '" + commandID.ToString() + "'";
                                     using (MySqlConnection conn2 = new MySqlConnection(_connectStr))
-                                {
-                                    if (conn2.State == ConnectionState.Closed)
                                     {
-                                        conn2.Open();
+                                        if (conn2.State == ConnectionState.Closed)
+                                        {
+                                            conn2.Open();
+                                        }
+                                        MySqlCommand resultCmd = new MySqlCommand(resultSQL, conn2);
+                                        int iResult = resultCmd.ExecuteNonQuery();
+                                        if (iResult > 0)
+                                        {
+                                            msg = DateTime.Now.ToString() + " 物联网控制指令ID:" + commandID.ToString() + " 已执行或超时关闭";
+                                            ShowMsgEvent(msg);
+                                            EveryDayLog.Write(msg);
+                                        }
+                                        else
+                                        {
+                                            msg = DateTime.Now.ToString() + " 物联网控制指令ID:" + commandID.ToString() + " 已执行或超时关闭失败";
+                                            ShowMsgEvent(msg);
+                                            EveryDayLog.Write(msg);
+                                        }
                                     }
-                                    MySqlCommand resultCmd = new MySqlCommand(resultSQL, conn2);
-                                    int iResult = resultCmd.ExecuteNonQuery();
-                                    if (iResult > 0)
-                                    {
-                                        msg = DateTime.Now.ToString() + " 物联网控制指令ID:" + commandID.ToString() + " 已执行或超时关闭";
-                                        ShowMsgEvent(msg);
-                                        EveryDayLog.Write(msg);
-                                    }
-                                    else
-                                    {
-                                        msg = DateTime.Now.ToString() + " 物联网控制指令ID:" + commandID.ToString() + " 已执行或超时关闭失败";
-                                        ShowMsgEvent(msg);
-                                        EveryDayLog.Write(msg);
-                                    }
-                                }
                                 }
 
                             }
@@ -2769,7 +2769,7 @@ namespace SockServer
                     sSQL = "SELECT a.ID, a.Device_ID,ActOrder,b.Device_Address,a.ScheduledTime,a.CreateTime,c.PLC_Number FROM sfyth_control_log a ";
                     sSQL += "LEFT JOIN sfyth_device b ON a.Device_ID = b.ID  LEFT JOIN sfyth_plc c ON a.PLC_Number = c.PLC_Number ";
                     sSQL += "WHERE a.ActState = 0 AND (ISNULL(a.ScheduledTime) OR (NOW() > a.ScheduledTime AND DATE_ADD(a.ScheduledTime,INTERVAL 10 MINUTE)>NOW())) ";
-  
+
                     using (MySqlConnection conn = new MySqlConnection(_connectStr))
                     {
                         if (conn.State == ConnectionState.Closed)
@@ -2882,7 +2882,7 @@ namespace SockServer
                         MySqlDataReader msdr = myCmd.ExecuteReader();
                         while (msdr.Read())
                         {
-                            int  commandID = 0;
+                            int commandID = 0;
                             comm_sn = (msdr.IsDBNull(9)) ? "" : msdr.GetString("PLC_Number");
                             try
                             {
@@ -2894,7 +2894,7 @@ namespace SockServer
                                     orderOverTime = (int)DateTime.Now.Subtract(Convert.ToDateTime(schdTime)).Duration().TotalSeconds;
                                 }
                                 // 超时10分钟
-                                
+
                                 //未超时10分钟或者
                                 if (schdTime.Length > 1 || (orderOverTime < 600 && orderOverTime >= 0))
                                 {
@@ -3020,7 +3020,7 @@ namespace SockServer
                                 break;
                         }
                     }
-                    
+
                 }
                 Thread.Sleep(_get_command_time);
             }
@@ -3049,7 +3049,7 @@ namespace SockServer
                     }
                 }
                 foreach (TCPClientState client in _clients)
-                { 
+                {
                     if (client._isolder)
                     {
                         int tp = (int)DateTime.Now.Subtract(Convert.ToDateTime(client.lastTime)).Duration().TotalSeconds;
@@ -3068,14 +3068,14 @@ namespace SockServer
 
 
         public void PLC_sendOrder(CommandInfo oneCmd)
-        { 
-            
+        {
+
             string msg = null;
             string sSQL = null;
             string sSendStr = null;
             sSQL = "";
-            ControlDevice oneControl = (ControlDevice) findDevbyID(oneCmd.deviceID,10);
-            CommDevice oneComm = (CommDevice)getCommbySN(oneCmd.serialNumber,1);
+            ControlDevice oneControl = (ControlDevice)findDevbyID(oneCmd.deviceID, 10);
+            CommDevice oneComm = (CommDevice)getCommbySN(oneCmd.serialNumber, 1);
             if (oneCmd.actparam > 0)
             {
                 Thread.Sleep(oneCmd.actparam);//延迟
@@ -3085,7 +3085,7 @@ namespace SockServer
                 case "AC-OPEN":
                     if (((ControlDevice)oneControl).devtype.Equals("1"))
                     {
-                        sSendStr = Convert.ToString(Convert.ToInt32(oneComm.commaddr),16).PadLeft(2,'0');
+                        sSendStr = Convert.ToString(Convert.ToInt32(oneComm.commaddr), 16).PadLeft(2, '0');
                         sSendStr += "05";
                         sSendStr += Convert.ToString(oneControl.devaddr + 1999, 16).PadLeft(4, '0');
                         sSendStr += "FF00";
@@ -3103,11 +3103,11 @@ namespace SockServer
                         sSendStr += "FF00";
                         sSendStr += FormatFunc.ToModbusCRC16(sSendStr, true);
                         Send(oneCmd.client, sSendStr);
-                        msg = DateTime.Now.ToString() + " 设备（" + oneControl.devcode + " ）发送"+ oneCmd.actOrder+ "指令:" + sSendStr;
+                        msg = DateTime.Now.ToString() + " 设备（" + oneControl.devcode + " ）发送" + oneCmd.actOrder + "指令:" + sSendStr;
                         ShowMsgEvent(msg);
                         EveryDayLog.Write(msg);
                         Thread.Sleep(500); //间隔0.5秒
-                        
+
                         sSendStr = Convert.ToString(Convert.ToInt32(oneComm.commaddr), 16).PadLeft(2, '0');
                         sSendStr += "05";
                         sSendStr += Convert.ToString(oneControl.devaddr + 1999, 16).PadLeft(4, '0');
@@ -3121,7 +3121,7 @@ namespace SockServer
                     else
                     {
                         msg = DateTime.Now.ToString() + " 设备编号为：" + oneControl.devcode + " 为未知的设备类型：" + ((ControlDevice)oneControl).devtype;
-                        
+
                     }
                     break;
                 case "AC-CLOSE":
@@ -3184,7 +3184,7 @@ namespace SockServer
                         Send(oneCmd.client, sSendStr);
                         Thread.Sleep(500); //间隔0.2秒
                         sSendStr = Convert.ToString(Convert.ToInt32(oneComm.commaddr), 16).PadLeft(2, '0');
-                         sSendStr += "05";
+                        sSendStr += "05";
                         sSendStr += Convert.ToString(oneControl.devaddr + 5000, 16).PadLeft(4, '0');
                         sSendStr += "FF00";
                         sSendStr += FormatFunc.ToModbusCRC16(sSendStr, true);
@@ -3200,7 +3200,7 @@ namespace SockServer
             }
             try
             {
-               sSQL = "update yw_c_control_log_tbl set ExecuteTime=now(),ExecuteResult='4' where id = '" + oneCmd.commandID.ToString() + "'";
+                sSQL = "update yw_c_control_log_tbl set ExecuteTime=now(),ExecuteResult='4' where id = '" + oneCmd.commandID.ToString() + "'";
                 using (MySqlConnection conn2 = new MySqlConnection(_connectStr))
                 {
                     if (conn2.State == ConnectionState.Closed)
@@ -3211,7 +3211,7 @@ namespace SockServer
                     int iResult = resultCmd.ExecuteNonQuery();
                     if (iResult > 0)
                     {
-                        msg = DateTime.Now.ToString() + " 控制指令ID:" +oneCmd.commandID.ToString() + " 执行完成，更新日志成功";
+                        msg = DateTime.Now.ToString() + " 控制指令ID:" + oneCmd.commandID.ToString() + " 执行完成，更新日志成功";
                         ShowMsgEvent(msg);
                         EveryDayLog.Write(msg);
                     }
@@ -3239,7 +3239,7 @@ namespace SockServer
             string sSendStr = null;
             sSQL = "";
             ControlDevice oneControl = (ControlDevice)findDevbyID(oneCmd.deviceID, 10);
-            CommDevice oneComm = (CommDevice)getCommbySN(oneCmd.serialNumber,1);
+            CommDevice oneComm = (CommDevice)getCommbySN(oneCmd.serialNumber, 1);
             if (oneCmd.actparam > 0)
             {
                 Thread.Sleep(oneCmd.actparam);//延迟
@@ -3251,11 +3251,11 @@ namespace SockServer
                     {
                         sSendStr = "15010000000B0210";
                         sSendStr += Convert.ToString((oneControl.devaddr - 1) * 2, 16).PadLeft(4, '0');
-                        sSendStr += "000204"+"A" + oneControl.devaddr.ToString() + "40FFFF";
+                        sSendStr += "000204" + "A" + oneControl.devaddr.ToString() + "40FFFF";
                         sSendStr += FormatFunc.ToModbusCRC16(sSendStr, true);
                         Send(oneCmd.client, sSendStr);
                     }
-                    
+
                     break;
                 case "AC-CLOSE":
                     if (((ControlDevice)oneControl).devtype.Equals("1"))
@@ -3310,7 +3310,7 @@ namespace SockServer
             string sSendStr = null;
             sSQL = "";
             ControlDevice oneControl = (ControlDevice)findDevbyID(oneCmd.deviceID, 10);
-            CommDevice oneComm = (CommDevice)getCommbySN(oneCmd.serialNumber,1);
+            CommDevice oneComm = (CommDevice)getCommbySN(oneCmd.serialNumber, 1);
             if (oneCmd.actparam > 0)
             {
                 Thread.Sleep(oneCmd.actparam);//延迟
@@ -3331,7 +3331,7 @@ namespace SockServer
                     {
                         sSendStr = Convert.ToString(Convert.ToInt32(oneComm.commaddr), 16).PadLeft(2, '0');
                         sSendStr += "72";
-                        sSendStr += Convert.ToString(oneControl.devaddr+1, 16).PadLeft(2, '0');
+                        sSendStr += Convert.ToString(oneControl.devaddr + 1, 16).PadLeft(2, '0');
                         sSendStr += "0000";
                         sSendStr += FormatFunc.ToModbusCRC16(sSendStr, true);
                         Send(oneCmd.client, sSendStr);
@@ -3372,7 +3372,7 @@ namespace SockServer
                         Thread.Sleep(200); //间隔0.2秒
                         sSendStr = Convert.ToString(Convert.ToInt32(oneComm.commaddr), 16).PadLeft(2, '0');
                         sSendStr += "72";
-                        sSendStr += Convert.ToString(oneControl.devaddr+1, 16).PadLeft(2, '0');
+                        sSendStr += Convert.ToString(oneControl.devaddr + 1, 16).PadLeft(2, '0');
                         sSendStr += "0100";
                         sSendStr += FormatFunc.ToModbusCRC16(sSendStr, true);
                         Send(oneCmd.client, sSendStr);
@@ -3444,7 +3444,7 @@ namespace SockServer
             }
             catch (Exception err)
             {
-                msg = DateTime.Now.ToString() + " 控制指令ID:" + oneCmd.commandID.ToString() + " 执行错误:"+err.Message;
+                msg = DateTime.Now.ToString() + " 控制指令ID:" + oneCmd.commandID.ToString() + " 执行错误:" + err.Message;
                 ShowMsgEvent(msg);
                 EveryDayLog.Write(msg);
             }
@@ -3458,7 +3458,7 @@ namespace SockServer
             string sSendStr = null;
             sSQL = "";
             ControlDevice oneControl = (ControlDevice)findDevbyID(oneCmd.deviceID, 10);
-            CommDevice oneComm = (CommDevice)getCommbySN(oneCmd.serialNumber,1);
+            CommDevice oneComm = (CommDevice)getCommbySN(oneCmd.serialNumber, 1);
             if (oneCmd.actparam > 0)
             {
                 Thread.Sleep(oneCmd.actparam);//延迟
@@ -3526,8 +3526,8 @@ namespace SockServer
             string sArea = null;
             string sFert = null;
             sSQL = "";
-            
-            CommDevice oneComm = (CommDevice)getCommbySN(oneCmd.serialNumber,2);
+
+            CommDevice oneComm = (CommDevice)getCommbySN(oneCmd.serialNumber, 2);
             ////if (oneCmd.actparam > 0)
             ////{
             ////    Thread.Sleep(oneCmd.actparam);//延迟
@@ -3564,17 +3564,17 @@ namespace SockServer
                         break;
                     }
                     else
-                    { 
+                    {
                         if (oneComm.commtype.ToUpper().Equals("SFJ-0804"))
                         {
-                            string [] tempArea = oneCmd.taskArea.Split(',');
-                            char[] cArea = new char[8]{ '0', '0', '0', '0', '0', '0', '0', '0'};
+                            string[] tempArea = oneCmd.taskArea.Split(',');
+                            char[] cArea = new char[8] { '0', '0', '0', '0', '0', '0', '0', '0' };
                             //根据灌区id,确定灌区的16进制数
                             foreach (string oneArea in tempArea)
                             {
                                 oneControl = (ControlDevice)findDevbyID(Convert.ToInt32(oneArea), 20);
-                                cArea[oneControl.devaddr-1] = '1';
-                                
+                                cArea[oneControl.devaddr - 1] = '1';
+
                             }
                             if (oneCmd.taskType.Equals("1"))
                             {
@@ -3648,14 +3648,14 @@ namespace SockServer
                     sSendStr += "0000"; //任务状态
                     sSendStr += Convert.ToString(oneCmd.waterNumSet * 10, 16).PadLeft(4, '0');  //灌溉量
                     sSendStr += Convert.ToString(oneCmd.warterInterval, 16).PadLeft(4, '0');    //灌溉时长
-                    sSendStr += Convert.ToString(oneCmd.fertNumSet *10, 16).PadLeft(4, '0');    //施肥量
+                    sSendStr += Convert.ToString(oneCmd.fertNumSet * 10, 16).PadLeft(4, '0');    //施肥量
                     sSendStr += "0000"; //设定年
                     sSendStr += "0000"; //设定月
                     sSendStr += "0000"; //设定日
                     sSendStr += "0000"; //设定时
                     sSendStr += "0000"; //设定分
                     sSendStr += "0000"; //设定秒
-                    sSendStr += oneCmd.taskType.PadLeft(4,'0'); //任务类型：0-灌溉，1-施肥
+                    sSendStr += oneCmd.taskType.PadLeft(4, '0'); //任务类型：0-灌溉，1-施肥
                     sSendStr += FormatFunc.ToModbusCRC16(sSendStr, true);
                     Send(oneCmd.client, sSendStr);
                     sSQL = "UPDATE sfyth_task SET T_State='1'  where T_ID = '" + oneCmd.commandID.ToString() + "'";
@@ -3735,7 +3735,7 @@ namespace SockServer
             return sReturn;
         }
 
-        public object findDevbyID(int for_value,int devclass)
+        public object findDevbyID(int for_value, int devclass)
         {
             Object sReturn = null;
 
@@ -3766,7 +3766,7 @@ namespace SockServer
             return sReturn;
         }
 
-   
+
         ////public int getCommbyMqtt(int for_value, string comm_sn, int devclass, int devpara)
         ////{
         ////    int _index = -1;
@@ -3806,14 +3806,14 @@ namespace SockServer
         ////    return _index;
         ////}
 
-        public int getSensorbyFoumula(string for_value, string comm_sn,int para)
+        public int getSensorbyFoumula(string for_value, string comm_sn, int para)
         {
             int _index = -1;
             if (_sensorList.Count > 0)
             {
                 for (int i = 0; i < _sensorList.Count; i++)
                 {
-                    if ((_sensorList[i].devformula.ToUpper().Equals(for_value.ToUpper())) && (_sensorList[i].commnum.ToUpper().Equals(comm_sn.ToUpper())) && _sensorList[i].devpara==para)
+                    if ((_sensorList[i].devformula.ToUpper().Equals(for_value.ToUpper())) && (_sensorList[i].commnum.ToUpper().Equals(comm_sn.ToUpper())) && _sensorList[i].devpara == para)
                     {
                         _index = i;
                         return _index;
@@ -3823,7 +3823,7 @@ namespace SockServer
             return _index;
         }
 
-        public object getCommbySN(String commSN,int commclass)
+        public object getCommbySN(String commSN, int commclass)
         {
             object retComm = new object();
             foreach (CommDevice comm in _commList)
@@ -4124,7 +4124,7 @@ namespace SockServer
         {
             try
             {
-               if (state != null)
+                if (state != null)
                 {
                     //
                     string ipport = state.TcpClient.Client.RemoteEndPoint.ToString();
@@ -4135,7 +4135,7 @@ namespace SockServer
                         _commtoipportDict.TryRemove(commsn, out string olderip);
                         removeClientEvent(commsn);
                     }
-                    
+
                     if (_linkedList.Contains(ipport))
                     {
                         _linkedList.Remove(ipport);
@@ -4145,7 +4145,7 @@ namespace SockServer
                     {
                         _forbidedList.Remove(ipport);
                     }
-                    _PendingDict.TryRemove(ipport, out int  oldertime);
+                    _PendingDict.TryRemove(ipport, out int oldertime);
                     _iptoStateDict.TryRemove(ipport, out TCPClientState oldstate);
 
                     state.Close();
@@ -4154,7 +4154,7 @@ namespace SockServer
                     //TODO 触发关闭事件
                 }
             }
-            catch(Exception err)
+            catch (Exception err)
             {
                 string msg = "关闭客户端发送错误：" + err.Message;
                 EveryDayLog.Write(msg);
@@ -4162,7 +4162,7 @@ namespace SockServer
             }
 
 
- 
+
         }
         /// <summary>
         /// 关闭所有的客户端会话,与所有的客户端连接会断开
@@ -4231,7 +4231,7 @@ namespace SockServer
         /// </summary>
         public TcpClient TcpClient { get; private set; }
 
-        
+
 
         /// <summary>
         /// 获取缓冲区
@@ -4386,7 +4386,7 @@ namespace SockServer
     /// <param name="commaddr">通讯地址 </param>
     /// <param name="companyid">所属公司ID</param>
     /// <param name="commtype">类型：PLC、KLC、FKC、XPC、YYC、SFJ-1200、SFJ-0804</param>
-     /// <param name="commpara">参数，水肥机-肥液路数，通讯设备-采集间隔</param>
+    /// <param name="commpara">参数，水肥机-肥液路数，通讯设备-采集间隔</param>
     /// <param name="passnum">通道数</param>
     /// <param name="commclass">通讯设备类别，0-物联网，1-水肥机</param>
     /// 
@@ -4395,13 +4395,13 @@ namespace SockServer
     //a.ID,a.Code,a.SerialNumber,a.CodeAddress,a.Company_ID,c.ClassName,`Interval`,b.ParamValue
     public struct CommDevice
     {
-        public int commid;           
-        public string commcode;        
-        public string serial_num;    
-        public string commaddr;              
-        public string companyid;      
-        public string commtype;        
-        public int commpara;         
+        public int commid;
+        public string commcode;
+        public string serial_num;
+        public string commaddr;
+        public string companyid;
+        public string commtype;
+        public int commpara;
         public int passnum;
         public int commclass;
     }
@@ -4420,15 +4420,15 @@ namespace SockServer
     /// </summary>
     public struct ControlDevice
     {
-        public int devid;          
-        public string devcode;      
-        public int devaddr;         
-        public string devtype;      
-        public int devpara;           
-        public string commnum;           
-        public int blockid;        
-        public string devformula;  
-        public int devclass;      
+        public int devid;
+        public string devcode;
+        public int devaddr;
+        public string devtype;
+        public int devpara;
+        public string commnum;
+        public int blockid;
+        public string devformula;
+        public int devclass;
     }
 
     /// <summary>
@@ -4446,15 +4446,15 @@ namespace SockServer
 
     public struct SensorDevice
     {
-        public int devid;          
-        public string devcode;      
-        public int devaddr;         
-        public string devtype;      
-        public int devpara;             
-        public string commnum;           
-        public int blockid;        
-        public string devformula;  
-        public int devclass;            
+        public int devid;
+        public string devcode;
+        public int devaddr;
+        public string devtype;
+        public int devpara;
+        public string commnum;
+        public int blockid;
+        public string devformula;
+        public int devclass;
     }
     /// <summary>
     /// <para name="commanID">命令ID</para>
@@ -4490,7 +4490,7 @@ namespace SockServer
         public string serialNumber
         { get; set; }
         public string deviceCode
-         { get; set; }
+        { get; set; }
         public TCPClientState client
         { get; set; }
         public int waterNumSet
@@ -4499,7 +4499,7 @@ namespace SockServer
         { get; set; }
         public int warterInterval
         { get; set; }
-       public string taskArea
+        public string taskArea
         { get; set; }
         public string taskFert
         { get; set; }

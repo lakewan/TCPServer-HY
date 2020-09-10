@@ -196,8 +196,8 @@ namespace NewSockServer
                 try
                 {
                     IsRunning = true;
-                    _listener.Start();
-                    if (mqtt_host != null && mqtt_port != null)
+                    
+                    if (mqtt_host.Length>0 && mqtt_port.Length>0)
                     {
                         MQTT_ini(mqtt_host, mqtt_port);
                     }
@@ -210,7 +210,7 @@ namespace NewSockServer
 
                     Thread linkedOverTime = new Thread(overtimeClient_Thrd);
                     linkedOverTime.Start();
-
+                    _listener.Start();
                     _listener.BeginAcceptTcpClient(new AsyncCallback(HandleTcpClientAccepted), _listener);
                     //事件处理
                     ClientConnected += new EventHandler<AsyncEventArgs>(onClientConnected);
@@ -262,10 +262,14 @@ namespace NewSockServer
                 byte[] buffer = new byte[client.ReceiveBufferSize];
                 TCPClientState state
                   = new TCPClientState(client, buffer);
-                lock (_clients)
-                {
+                state.clientStatus = 1;
+                state.lastTime = DateTime.Now.ToString();
+                state.faildTimes = 0;
+                state.clientComm = null;
+                //lock (_clients)
+                //{
                     RaiseClientConnected(state);
-                }
+                //}
                 NetworkStream stream = state.NetworkStream;
                 //开始异步读取数据
                 stream.BeginRead(state.Buffer, 0, state.Buffer.Length, HandleDataReceived, state);
@@ -293,7 +297,6 @@ namespace NewSockServer
                 {
                     recv = 0;
                 }
-
                 if (recv == 0)
                 {
                     state.clientStatus = 3;
@@ -318,9 +321,6 @@ namespace NewSockServer
             string msg = null;
             try
             {
-                state.clientStatus = 1;
-                state.lastTime = DateTime.Now.ToString();
-                state.faildTimes = 0;
                 _clients.Add(state);
                 msg = DateTime.Now.ToString() + " 接受客户端(" + ipport + ")新连接";
                 ShowMsgEvent(msg);
@@ -358,7 +358,7 @@ namespace NewSockServer
 
             }
             //待连接
-            if (state.clientStatus == 1)
+            if (state.clientStatus == 1 )
             {
                 //心跳数据
                 if (gw_sn != null)
@@ -367,23 +367,49 @@ namespace NewSockServer
                     {
                         if (sRecvData.Substring(0, 12).ToUpper().Equals("150122220010"))
                         {
-                            Send(state, "15012222000180");
+                            lock (_clients)
+                            {
+                                TCPClientState tempClient = findStatebySN(gw_sn);
+                                int tp = 0;
+                                if (tempClient != null)
+                                {
+                                    tp = (int)DateTime.Now.Subtract(Convert.ToDateTime(tempClient.lastTime)).Duration().TotalSeconds;
+                                }
+                                if (tempClient == null || tp > 600)
+                                {
+                                    state.clientStatus = 2;
+                                    Send(state, "15012222000180");
+                                    msg = DateTime.Now.ToString() + " KLC客户端(" + gw_sn + ")接受连接请求，并响应数据：15012222000180";
+                                    ShowMsgEvent(msg);
+                                    EveryDayLog.Write(msg);
+                                }
+                                else
+                                {
+                                    state.clientStatus = 3;
+                                    msg = DateTime.Now.ToString() + " KLC客户端(" + gw_sn + ")已存在连接，关闭本次连接";
+                                    ShowMsgEvent(msg);
+                                    EveryDayLog.Write(msg);
+                                    return;
+                                }
+
+                            }
                         }
                         state.faildTimes = 0;
                         state.lastTime = DateTime.Now.ToString();
                         state.clientStatus = 2;
-                        state.clientComm = (CommDevice)clientComm;
+                        state.clientComm = clientComm;
                         //窗口显示通讯设备编号
                         addClientEvent(gw_sn);
-                        collectDataorState(state);
-                        msg = DateTime.Now.ToString() + " 从待连接客户端(" + gw_sn + ";" + ipport + ")接受心跳，并开始正式接受数据";
+                        //???????,如果不用异步，采集没有返回值
+                        Task.Run(() => collectDataorState(state));
+                        msg = DateTime.Now.ToString() + " 从待连接客户端(" + gw_sn + ")接受心跳，并开始正式接受数据";
                         ShowMsgEvent(msg);
                         EveryDayLog.Write(msg);
                     }
 
                     catch (Exception err)
                     {
-                        msg = DateTime.Now.ToString() + " 从待连接客户端(" + gw_sn + ";" + ipport + ")心跳数据:" + sRecvData + "，发生错误:" + err.Message;
+                        msg = DateTime.Now.ToString() + " 从待连接客户端(" + gw_sn + ")心跳数据:" + sRecvData + "，发生错误:" + err.Message;
                         ShowMsgEvent(msg);
                         EveryDayLog.Write(msg);
                     }
@@ -398,13 +424,13 @@ namespace NewSockServer
                 }
 
             }
-            else if (state.clientStatus == 2)
+            else if (state.clientStatus == 2 && state.clientComm != null)
             {
                 //心跳数据
                 if (gw_sn != null)
                 {
                     state.lastTime = DateTime.Now.ToString();
-                    msg = DateTime.Now.ToString() + " 从已连接客户端(" + gw_sn + ";" + ipport + ")接受心跳";
+                    msg = DateTime.Now.ToString() + " 从已连接客户端(" + gw_sn + ")接受心跳";
                     ShowMsgEvent(msg);
                     EveryDayLog.Write(msg);
                 }
@@ -424,7 +450,7 @@ namespace NewSockServer
                     if (!bComm)
                     {
                         state.faildTimes++;
-                        msg = DateTime.Now.ToString() + " 已连接客户端(" + state.clientComm.serial_num + ";" + ipport + ")获取非法数据" + sRecvData;
+                        msg = DateTime.Now.ToString() + " 已连接客户端(" + state.clientComm.serial_num + ")获取非法数据" + sRecvData;
                         ShowMsgEvent(msg);
                         EveryDayLog.Write(msg);
                         return;
@@ -478,12 +504,9 @@ namespace NewSockServer
                                 state.faildTimes = 0;
                                 DYC_handlerecv(state.clientComm, sRecvData.Substring(16));
                                 break;
-                            //case "MQC":
-                            //    MQT_handlerecv(state.clientComm, sRecvData.Substring(16));
-                            //    break;
                             default:
                                 state.faildTimes++;
-                                msg = DateTime.Now.ToString() + " 处理未知类型已连接客户端(" + state.clientComm.serial_num + ";" + ipport + ")数据" + sRecvData;
+                                msg = DateTime.Now.ToString() + " 处理未知类型已连接客户端(" + state.clientComm.serial_num + ")数据" + sRecvData;
                                 ShowMsgEvent(msg);
                                 EveryDayLog.Write(msg);
                                 break;
@@ -495,7 +518,7 @@ namespace NewSockServer
             }
             else
             {
-                msg = DateTime.Now.ToString() + " 通讯客户端(" + state.clientComm.serial_num + ";" + ipport + ")处于断开或关闭状态" + sRecvData;
+                msg = DateTime.Now.ToString() + " 通讯客户端(" + ipport + ")处于断开或关闭状态" + sRecvData;
                 ShowMsgEvent(msg);
                 EveryDayLog.Write(msg);
 
@@ -619,7 +642,7 @@ namespace NewSockServer
                                         commdev.passnum = (msdr2.IsDBNull(7)) ? 0 : msdr2.GetInt32("ParamValue");
                                         commdev.commclass = 1;
                                         _commList.Add(commdev);
-                                        if (commdev.commaddr.Equals("MQC"))
+                                        if (commdev.commaddr.Equals("MQT"))
                                         {
                                             MQTT_Connect(commdev.serial_num);
                                         }
@@ -939,19 +962,23 @@ namespace NewSockServer
         /// <param name="data">数据报文</param>
         public void Send(TCPClientState state, string data)
         {
-            try
-            {
-                if (state.clientStatus == 2)
-                {
-                    byte[] a = FormatFunc.strToHexByte(data);
-                    Send(state.TcpClient, FormatFunc.strToHexByte(data));
-                }
-            }
-            catch (Exception err)
-            {
-                string msg = DateTime.Now.ToString() + "向(" + state.TcpClient.Client.RemoteEndPoint.ToString() + ")发送数据:" + data + ",发生错误:" + err.Message;
-                EveryDayLog.Write(msg);
-            }
+            //try
+            //{
+            //    if (state.clientStatus == 2)
+            //    {
+            //        //byte[] a = System.Text.Encoding.Default.GetBytes(data);
+            //        byte[] a = FormatFunc.strToHexByte(data);
+            //        Send(state.TcpClient, a);
+            //    }
+            //}
+            //catch (Exception err)
+            //{
+            //    string msg = DateTime.Now.ToString() + " 向(" + state.TcpClient.Client.RemoteEndPoint.ToString() + ")发送数据:" + data + ",发生错误:" + err.Message;
+            //    ShowMsgEvent(msg);
+            //    EveryDayLog.Write(msg);
+            //}
+            byte[] a = FormatFunc.strToHexByte(data);
+            Send(state.TcpClient, FormatFunc.strToHexByte(data));
         }
 
         /// <summary>
@@ -971,7 +998,8 @@ namespace NewSockServer
             }
             catch (Exception err)
             {
-                string msg = DateTime.Now.ToString() + "向(" + state.TcpClient.Client.RemoteEndPoint.ToString() + ")发送数据:" + FormatFunc.ByteToString(data) + ",发生错误:" + err.Message;
+                string msg = DateTime.Now.ToString() + " 向(" + state.TcpClient.Client.RemoteEndPoint.ToString() + ")发送数据:" + FormatFunc.ByteToString(data) + ",发生错误:" + err.Message;
+                ShowMsgEvent(msg);
                 EveryDayLog.Write(msg);
             }
 
@@ -1008,11 +1036,14 @@ namespace NewSockServer
                 if (client.Connected)
                 {
                     client.GetStream().BeginWrite(data, 0, data.Length, SendDataEnd, client);
+                    msg = DateTime.Now.ToString() + " 向("+client.Client.RemoteEndPoint.ToString()+")发送数据:" + FormatFunc.byteToHexStr(data);
+                    ShowMsgEvent(msg);
+                    EveryDayLog.Write(msg);
                 }
             }
             catch (Exception err)
             {
-                msg = DateTime.Now.ToString() + " 发送数据失败:" + err.Message;
+                msg = DateTime.Now.ToString() + " 向(" + client.Client.RemoteEndPoint.ToString() + ")发送数据:" + FormatFunc.byteToHexStr(data)+",发生错误:" + err.Message;
                 EveryDayLog.Write(msg);
             }
 
@@ -1634,7 +1665,6 @@ namespace NewSockServer
                     sSQL = "INSERT INTO yw_c_sensordata_tbl (Device_ID,Device_Code,ReportTime,ReportValue,Block_ID) values ";
                     string sensorRecv = null;
                     double sensorValue = 0;
-                    string sensorData = null;
                     for (int i = 0; i < 16; i++)
                     {
                         Object oneDev = findDevbyAddr(i + 1, comm.serial_num, 11);
@@ -2504,9 +2534,7 @@ namespace NewSockServer
                     break;
                 default:
                     break;
-
             }
-
         }
 
         public void KLC_getStateorDataThrd(TCPClientState state)
@@ -2519,7 +2547,7 @@ namespace NewSockServer
             //采集时间>5分钟
             if (comm_interval > 5 * 60 * 1000)
             {
-                collect_time = (int)comm_interval;
+                collect_time = (int) comm_interval;
             }
             else
             {
@@ -2541,7 +2569,7 @@ namespace NewSockServer
                         sendStr += "03";
                         sendStr += "0000"; //起始地址
                         sendStr += "0020"; //数量
-                        sendStr += FormatFunc.ToModbusCRC16(sendStr, true);
+                        //sendStr += FormatFunc.ToModbusCRC16(sendStr, true);
                         Send(state, sendStr);
                         string msg = DateTime.Now.ToString() + " KLC设备(" + comm_sn + ")发送数据采集指令:" + sendStr;
                         ShowMsgEvent(msg);
@@ -2556,7 +2584,7 @@ namespace NewSockServer
                         sendStr += "03";
                         sendStr += "0000"; //起始地址
                         sendStr += "0004"; //数量
-                        sendStr += FormatFunc.ToModbusCRC16(sendStr, true);
+                        //sendStr += FormatFunc.ToModbusCRC16(sendStr, true);
                         Send(state, sendStr);
                         string msg = DateTime.Now.ToString() + " KLC设备(" + comm_sn + ")发送状态获取指令:" + sendStr;
                         ShowMsgEvent(msg);
@@ -2612,10 +2640,11 @@ namespace NewSockServer
                         sendStr += "0000"; //起始地址
                         sendStr += "0010"; //数量
                         sendStr += FormatFunc.ToModbusCRC16(sendStr, true);
-                        Send(state, sendStr);
-                        string msg = DateTime.Now.ToString() + " FKC设备(" + comm_sn + ")发送数据采集指令:" + sendStr;
+                        string msg = DateTime.Now.ToString() + " FKC设备(" + comm_sn + ")开始发送数据采集指令:" + sendStr;
                         ShowMsgEvent(msg);
                         EveryDayLog.Write(msg);
+                        Send(state, sendStr);
+                        
                         // 重置启动时间
                         starttime = FormatFunc.getTimeStamp();
 
@@ -2665,7 +2694,6 @@ namespace NewSockServer
             {
                 collect_time = 5 * 60 * 1000;
             }
-
             while (state != null && state.clientStatus == 2)
             {
                 try
@@ -2676,10 +2704,10 @@ namespace NewSockServer
                     sendStr += "0000"; //起始地址
                     sendStr += "0010"; //数量
                     sendStr += FormatFunc.ToModbusCRC16(sendStr, true);
-                    Send(state, sendStr);
-                    string msg = DateTime.Now.ToString() + " XPC设备(" + comm_sn + ")发送数据采集指令:" + sendStr;
+                    string msg = DateTime.Now.ToString() + " XPC设备(" + comm_sn + ")开始发送数据采集指令:" + sendStr;
                     ShowMsgEvent(msg);
                     EveryDayLog.Write(msg);
+                    Send(state, sendStr);
                     Thread.Sleep(collect_time);
                 }
                 catch (Exception err)
@@ -2690,17 +2718,6 @@ namespace NewSockServer
                 }
             }
 
-            //////XPH协议
-            ////while (state != null && _commtoipportDict.TryGetValue(comm_sn, out string ipport))
-            ////{
-            ////    //开始采集数据，如果是XPH协议，接受数据的数据域长度为2个字节和飞科的一样，返回数据包含了继电器状态
-            ////    sendStr = state.clientComm.commpara.ToString().PadLeft(2, '0');
-            ////    sendStr += "03";
-            ////    sendStr += "0000"; //起始地址
-            ////    sendStr += FormatFunc.ToModbusCRC16(sendStr, true);
-            ////    Send(state, sendStr);
-            ////    Thread.Sleep(_get_state_time);
-            ////}
         }
 
         public void XPH_getStateorDataThrd(TCPClientState state)
@@ -2710,7 +2727,7 @@ namespace NewSockServer
             string commaddr = state.clientComm.commaddr;
             int collect_time = 0;
             string sendStr = null;
-            //采集时间>5分钟
+            ////采集时间>5分钟
             if (comm_interval > 5 * 60 * 1000)
             {
                 collect_time = (int)comm_interval;
@@ -2731,15 +2748,16 @@ namespace NewSockServer
                     sendStr += "0000"; //起始地址
                     //sendStr += "0010"; //数量
                     sendStr += FormatFunc.ToModbusCRC16(sendStr, true);
-                    Send(state, sendStr);
-                    string msg = DateTime.Now.ToString() + " FKC设备(" + comm_sn + ")发送数据采集指令:" + sendStr;
+                    string msg = DateTime.Now.ToString() + " XPH设备(" + comm_sn + ")开始发送数据采集指令:" + sendStr;
                     ShowMsgEvent(msg);
                     EveryDayLog.Write(msg);
+                    Send(state, sendStr);
+                    
                     Thread.Sleep(collect_time);
                 }
                 catch (Exception err)
                 {
-                    string msg = DateTime.Now.ToString() + " FKC设备(" + comm_sn + ")采集数据或状态，发生错误:" + err.Message;
+                    string msg = DateTime.Now.ToString() + " XPH设备(" + comm_sn + ")采集数据或状态，发生错误:" + err.Message;
                     ShowMsgEvent(msg);
                     EveryDayLog.Write(msg);
                 }
@@ -2775,10 +2793,10 @@ namespace NewSockServer
                     sendStr += "0000"; //起始地址
                     sendStr += "0020"; //数量
                     sendStr += FormatFunc.ToModbusCRC16(sendStr, true);
-                    Send(state, sendStr);
-                    string msg = DateTime.Now.ToString() + " YYC设备(" + comm_sn + ")发送数据采集指令:" + sendStr;
+                    string msg = DateTime.Now.ToString() + " YYC设备(" + comm_sn + ")开始发送数据采集指令:" + sendStr;
                     ShowMsgEvent(msg);
                     EveryDayLog.Write(msg);
+                    Send(state, sendStr);
                     Thread.Sleep(collect_time);
                 }
                 catch (Exception err)
@@ -2807,7 +2825,7 @@ namespace NewSockServer
                     sSQL += "LEFT JOIN yw_d_controller_tbl b ON a.Device_ID = b.ID ";
                     sSQL += "LEFT JOIN yw_d_commnication_tbl c ON b.Commucation_ID = c.ID ";
                     sSQL += "where (a.ActOrder = 'AC-OPEN' OR a.ActOrder = 'AC-CLOSE' OR a.ActOrder = 'AC-STOP') AND a.`ExecuteResult` < 4 ";
-                    sSQL += "AND NOW() > a.ScheduledTime AND (c.SerialNumber IS NOT NULL) ";
+                    sSQL += "AND (ISNULL(a.ScheduledTime) OR NOW() > a.ScheduledTime) AND (c.SerialNumber IS NOT NULL) ";
                     //sSQL += "AND (ISNULL(a.ScheduledTime) OR (NOW() > a.ScheduledTime AND DATE_ADD(a.ScheduledTime,INTERVAL 10 MINUTE)>NOW())) AND (c.SerialNumber IS NOT NULL) ";
                     using (MySqlConnection conn = new MySqlConnection(_connectStr))
                     {
@@ -3204,7 +3222,7 @@ namespace NewSockServer
                         }
                         else if (clientstate.clientStatus == 3)
                         {
-                            if (tp > _linked_timeout + 600)
+                            if (tp > _linked_timeout + 600000)
                             {
                                 clientstate.clientStatus = 4;
                                 clientstate.Close();
@@ -3213,6 +3231,12 @@ namespace NewSockServer
                         else if (clientstate.clientStatus == 4)
                         {
                             _clients.Remove(clientstate);
+                            string commsn = null;
+                            commsn = clientstate.clientComm.serial_num;
+                            if (commsn != null)
+                            {
+                                removeClientEvent(commsn);
+                            }
                         }
                     }
                     catch (Exception err)
@@ -3991,7 +4015,7 @@ namespace NewSockServer
                 {
                     for (int i = _clients.Count - 1; i >= 0; i--)
                     {
-                        if (_clients[i].clientComm.serial_num.Equals(comm_sn))
+                        if (_clients[i].clientComm.serial_num.Equals(comm_sn) && _clients[i].TcpClient.Client.Connected)
                         {
                             return _clients[i];
                         }

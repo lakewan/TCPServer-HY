@@ -642,7 +642,7 @@ namespace NewSockServer
                                         commdev.passnum = (msdr2.IsDBNull(7)) ? 0 : msdr2.GetInt32("ParamValue");
                                         commdev.commclass = 1;
                                         _commList.Add(commdev);
-                                        if (commdev.commaddr.Equals("MQT"))
+                                        if (commdev.commtype.Equals("MQT") && mqtt_client!=null)
                                         {
                                             MQTT_Connect(commdev.serial_num);
                                         }
@@ -1926,7 +1926,9 @@ namespace NewSockServer
                     }
                     if (sControlSQL.Substring(sControlSQL.Length - 2).Equals("),"))
                     {
-                        sControlSQL = sControlSQL.Substring(0, sControlSQL.Length - 1);
+
+                        sControlSQL = sControlSQL.Substring(0, sControlSQL.Length - 1) + " ON DUPLICATE KEY UPDATE onoff = values(onoff);";
+
                         MySqlConnection conn = new MySqlConnection(_connectStr);
                         MySqlCommand myCmd = new MySqlCommand(sControlSQL, conn);
                         conn.Open();
@@ -1935,14 +1937,14 @@ namespace NewSockServer
                             int iSQLResult = myCmd.ExecuteNonQuery();
                             if (iSQLResult > 0)
                             {
-                                msg = DateTime.Now.ToString() + " XPH设备(" + comm.serial_num + ")插入最新数据成功:" + sControlSQL;
+                                msg = DateTime.Now.ToString() + " XPH设备(" + comm.serial_num + ")插入最新状态成功:" + sControlSQL;
                                 ShowMsgEvent(msg);
                                 EveryDayLog.Write(msg);
                             }
                         }
                         catch (Exception err)
                         {
-                            msg = DateTime.Now.ToString() + " XPH设备(" + comm.serial_num + ")插入最新数据失败:" + sControlSQL;
+                            msg = DateTime.Now.ToString() + " XPH设备(" + comm.serial_num + ")插入最新状态失败:" + sControlSQL;
                             ShowMsgEvent(msg);
                             EveryDayLog.Write(msg);
                         }
@@ -2386,12 +2388,11 @@ namespace NewSockServer
 
 
             string sSQL = "INSERT INTO yw_c_sensordata_tbl (Device_ID,Device_Code,ReportTime,ReportValue,Block_ID) values ";
-            object one = getCommbySN(commsn, 1);
-            if (one != null)
+            CommDevice oneComm = getCommbySN(commsn, 1);
+            if (oneComm != null)
             {
                 int subGroupID = 0;
                 string sSensorValue = null;
-                CommDevice oneComm = (CommDevice)one;
                 Dictionary<string, string> payloadDict = FormatFunc.JsonToDictionary(mqttpayload);
                 subGroupID = Convert.ToInt32(payloadDict["id"]);
                 if (subGroupID > 0)
@@ -2401,6 +2402,7 @@ namespace NewSockServer
                         int _sensorIndex = getSensorbyFoumula(kvp.Key, commsn, subGroupID);
                         if (_sensorIndex >= 0)
                         {
+
                             switch (_sensorList[_sensorIndex].devformula)
                             {
                                 case "airH":
@@ -2540,53 +2542,60 @@ namespace NewSockServer
         public void KLC_getStateorDataThrd(TCPClientState state)
         {
             string comm_sn = state.clientComm.serial_num;
-            int comm_interval = state.clientComm.commpara;
+            int comm_interval = state.clientComm.commpara*1000;
             string commaddr = state.clientComm.commaddr;
+            string msg;
             int collect_time = 0;
             string sendStr = null;
             //采集时间>5分钟
-            if (comm_interval > 5 * 60 * 1000)
+            if (comm_interval > 300000)
             {
-                collect_time = (int) comm_interval;
+                collect_time = (int)comm_interval;
             }
             else
             {
-                collect_time = 5 * 60 * 1000;
+                collect_time = 300000;
             }
             int startCollect = collect_time - _get_state_time;
+            //避免状态采集时间>数据采集时间
+            if (startCollect < 120000)
+            {
+                collect_time= _get_state_time+ 120000;
+                startCollect = 120000;
+            }
             int starttime = FormatFunc.getTimeStamp();
             while (state != null && state.clientStatus == 2)
             {
                 try
                 {
                     int nowstamp = FormatFunc.getTimeStamp();
-                    int timeGap = nowstamp - starttime;
+                    int timeGap = (nowstamp - starttime)*1000;
                     if (timeGap >= startCollect)
                     {
                         //开始采集数据
-                        Thread.Sleep(collect_time - timeGap);
                         sendStr = "15010000000601";
                         sendStr += "03";
                         sendStr += "0000"; //起始地址
                         sendStr += "0020"; //数量
-                        //sendStr += FormatFunc.ToModbusCRC16(sendStr, true);
-                        Send(state, sendStr);
-                        string msg = DateTime.Now.ToString() + " KLC设备(" + comm_sn + ")发送数据采集指令:" + sendStr;
+                        sendStr += FormatFunc.ToModbusCRC16(sendStr, true);
+                        msg = DateTime.Now.ToString() + " KLC设备(" + comm_sn + ")发送数据采集指令:" + sendStr;
                         ShowMsgEvent(msg);
                         EveryDayLog.Write(msg);
-                        // 重置启动时间
+                        Send(state, sendStr);
+                    // 重置启动时间
                         starttime = FormatFunc.getTimeStamp();
                     }
                     else if (timeGap >= _get_state_time)
                     {
-                        //开始获取状态
+                        
+                        //开始获取状态 15 01 00 00 00 06 02 03 00 00 00 04
                         sendStr = "15010000000602";
                         sendStr += "03";
                         sendStr += "0000"; //起始地址
                         sendStr += "0004"; //数量
-                        //sendStr += FormatFunc.ToModbusCRC16(sendStr, true);
+                        sendStr += FormatFunc.ToModbusCRC16(sendStr, true);
                         Send(state, sendStr);
-                        string msg = DateTime.Now.ToString() + " KLC设备(" + comm_sn + ")发送状态获取指令:" + sendStr;
+                        msg = DateTime.Now.ToString() + " KLC设备(" + comm_sn + ")发送状态获取指令:" + sendStr;
                         ShowMsgEvent(msg);
                         EveryDayLog.Write(msg);
                         Thread.Sleep(_get_state_time);
@@ -2599,7 +2608,7 @@ namespace NewSockServer
                 }
                 catch (Exception err)
                 {
-                    string msg = DateTime.Now.ToString() + " KLC设备(" + comm_sn + ")采集数据或状态，发生错误:" + err.Message;
+                    msg = DateTime.Now.ToString() + " KLC设备(" + comm_sn + ")采集数据或状态，发生错误:" + err.Message;
                     ShowMsgEvent(msg);
                     EveryDayLog.Write(msg);
                 }
@@ -2608,22 +2617,28 @@ namespace NewSockServer
         public void FKC_getStateorDataThrd(TCPClientState state)
         {
             string comm_sn = state.clientComm.serial_num;
-            int comm_interval = state.clientComm.commpara;
+            int comm_interval = state.clientComm.commpara*1000;
             string commaddr = state.clientComm.commaddr;
             int collect_time = 0;
             string sendStr = null;
             //采集时间>5分钟
-            if (comm_interval > 5 * 60 * 1000)
+            if (comm_interval > 300000)
             {
                 collect_time = (int)comm_interval;
             }
             else
             {
-                collect_time = 5 * 60 * 1000;
+                collect_time = 300000;
             }
 
 
             int startCollect = collect_time - _get_state_time;
+            //避免状态采集时间>数据采集时间
+            if (startCollect < 120000)
+            {
+                collect_time = _get_state_time + 120000;
+                startCollect = 120000;
+            }
             int starttime = FormatFunc.getTimeStamp();
             while (state != null && state.clientStatus == 2)
             {
@@ -2634,7 +2649,6 @@ namespace NewSockServer
                     if (timeGap >= startCollect)
                     {
                         //开始采集数据
-                        Thread.Sleep(collect_time - nowstamp);
                         sendStr = state.clientComm.commaddr.ToString().PadLeft(2, '0');
                         sendStr += "03";
                         sendStr += "0000"; //起始地址
@@ -2644,10 +2658,8 @@ namespace NewSockServer
                         ShowMsgEvent(msg);
                         EveryDayLog.Write(msg);
                         Send(state, sendStr);
-                        
                         // 重置启动时间
                         starttime = FormatFunc.getTimeStamp();
-
                     }
                     else if (timeGap >= _get_state_time)
                     {
@@ -2681,18 +2693,18 @@ namespace NewSockServer
         public void XPC_getStateorDataThrd(TCPClientState state)
         {
             string comm_sn = state.clientComm.serial_num;
-            int comm_interval = state.clientComm.commpara;
+            int comm_interval = state.clientComm.commpara*1000;
             string commaddr = state.clientComm.commaddr;
             int collect_time = 0;
             string sendStr = null;
             //采集时间>5分钟
-            if (comm_interval > 5 * 60 * 1000)
+            if (comm_interval > 300000)
             {
                 collect_time = (int)comm_interval;
             }
             else
             {
-                collect_time = 5 * 60 * 1000;
+                collect_time = 300000;
             }
             while (state != null && state.clientStatus == 2)
             {
@@ -2723,21 +2735,20 @@ namespace NewSockServer
         public void XPH_getStateorDataThrd(TCPClientState state)
         {
             string comm_sn = state.clientComm.serial_num;
-            int comm_interval = state.clientComm.commpara;
+            int comm_interval = state.clientComm.commpara*1000;
             string commaddr = state.clientComm.commaddr;
             int collect_time = 0;
             string sendStr = null;
             ////采集时间>5分钟
-            if (comm_interval > 5 * 60 * 1000)
+            if (comm_interval > 120000)
             {
-                collect_time = (int)comm_interval;
+                collect_time = 120000;
             }
             else
             {
-                collect_time = 5 * 60 * 1000;
+                collect_time = (int)comm_interval;
             }
-            int startCollect = collect_time - _get_state_time;
-            int starttime = FormatFunc.getTimeStamp();
+
             while (state != null && state.clientStatus == 2)
             {
                 try
@@ -2752,7 +2763,6 @@ namespace NewSockServer
                     ShowMsgEvent(msg);
                     EveryDayLog.Write(msg);
                     Send(state, sendStr);
-                    
                     Thread.Sleep(collect_time);
                 }
                 catch (Exception err)
@@ -2769,7 +2779,7 @@ namespace NewSockServer
         public void YYC_getStateorDataThrd(TCPClientState state)
         {
             string comm_sn = state.clientComm.serial_num;
-            int comm_interval = state.clientComm.commpara;
+            int comm_interval = state.clientComm.commpara*1000;
             string commaddr = state.clientComm.commaddr;
             int collect_time = 0;
             string sendStr = null;
@@ -4011,13 +4021,16 @@ namespace NewSockServer
         {
             try
             {
-                if (_clients.Count > 0)
+                if (_clients.Count > 0 )
                 {
                     for (int i = _clients.Count - 1; i >= 0; i--)
                     {
-                        if (_clients[i].clientComm.serial_num.Equals(comm_sn) && _clients[i].TcpClient.Client.Connected)
+                        if (_clients[i].clientComm != null && _clients[i].TcpClient !=null && _clients[i].TcpClient.Client != null)
                         {
-                            return _clients[i];
+                            if (_clients[i].clientComm.serial_num.Equals(comm_sn) )
+                            {
+                                return _clients[i];
+                            }
                         }
                     }
                 }
@@ -4038,7 +4051,7 @@ namespace NewSockServer
             int _index = -1;
             if (_sensorList.Count > 0)
             {
-                for (int i = _sensorList.Count - 1; i >= 0; i++)
+                for (int i = _sensorList.Count - 1; i >= 0; i--)
                 {
                     if ((_sensorList[i].devformula.ToUpper().Equals(for_value.ToUpper())) && (_sensorList[i].commnum.ToUpper().Equals(comm_sn.ToUpper())) && _sensorList[i].devpara == para)
                     {
@@ -4050,13 +4063,13 @@ namespace NewSockServer
             return _index;
         }
 
-        public CommDevice getCommbySN(String commSN, int commclass)
+        public CommDevice getCommbySN(String comm_sn, int commclass)
         {
             if (_commList.Count > 0)
             {
                 for (int i = _commList.Count - 1; i >= 0; i--)
                 {
-                    if (_commList[i].serial_num.ToUpper().Equals(commSN) && _commList[i].commclass == commclass)
+                    if (_commList[i].serial_num.ToUpper().Equals(comm_sn) && _commList[i].commclass == commclass)
                     {
                         return _commList[i];
                     }

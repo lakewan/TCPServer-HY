@@ -14,6 +14,7 @@ using System.Windows.Forms;
 using System.Threading;
 using dayLogFiles; 
 using DataFormat;
+using System.Threading.Tasks;
 
 //using NewSockServer;
 using NewSockServer;
@@ -84,7 +85,7 @@ namespace TCPServer
                     _tcpServer.removeClientEvent += new removeClientDelegate(lstClientRemove);
                     _tcpServer.Start();
                     _isListening = true;
-                    //Thread clearLogTask = new Thread(clearLog);
+                    Task.Run(() => clearLog());
                     //clearLogTask.Start();
 
                 }
@@ -271,7 +272,7 @@ namespace TCPServer
         public void clearLog()
         {
             Thread.Sleep(3600000);
-            //ResetTextBox(lsbRecvMsg);
+            ResetTextBox(lsbRecvMsg);
 
         }
 

@@ -1487,9 +1487,13 @@ namespace NewSockServer
                             SensorDevice oneSensor = (SensorDevice)oneDev;
                             sensorRecv = sdata.Substring(i * 4 + 8, 4);   //这是和新普惠的区别，飞科数据长度占2个字节
 
-                            if (sensorRecv.ToUpper().ToUpper().Equals("7FFF"))
+                            if (!(sensorRecv.ToUpper().Equals("7FFF")))
                             {
                                 sensorValue = Convert.ToInt32(sensorRecv, 16);
+                            }
+                            else
+                            {
+                                continue;
                             }
                             switch (oneSensor.devformula)
                             {
@@ -1676,6 +1680,10 @@ namespace NewSockServer
                             {
                                 sensorValue = Convert.ToInt32(sensorRecv, 16);
                             }
+                            else
+                            {
+                                continue;
+                            }
                             switch (oneSensor.devformula)
                             {
                                 case "WENDU":
@@ -1799,9 +1807,13 @@ namespace NewSockServer
                             SensorDevice oneSensor = (SensorDevice)oneDev;
                             sensorRecv = sdata.Substring(i * 4 + 8, 4);   //这是和新普惠的区别，飞科数据长度占2个字节
 
-                            if (sensorRecv.ToUpper().ToUpper().Equals("7FFF"))
+                            if (!(sensorRecv.ToUpper().Equals("7FFF")))
                             {
                                 sensorValue = Convert.ToInt32(sensorRecv, 16);
+                            }
+                            else 
+                            {
+                                continue;
                             }
                             switch (oneSensor.devformula)
                             {
@@ -2556,55 +2568,34 @@ namespace NewSockServer
             {
                 collect_time = 300000;
             }
-            int startCollect = collect_time - _get_state_time;
-            //避免状态采集时间>数据采集时间
-            if (startCollect < 120000)
-            {
-                collect_time= _get_state_time+ 120000;
-                startCollect = 120000;
-            }
-            int starttime = FormatFunc.getTimeStamp();
+
             while (state != null && state.clientStatus == 2)
             {
                 try
                 {
-                    int nowstamp = FormatFunc.getTimeStamp();
-                    int timeGap = (nowstamp - starttime)*1000;
-                    if (timeGap >= startCollect)
-                    {
-                        //开始采集数据
-                        sendStr = "15010000000601";
-                        sendStr += "03";
-                        sendStr += "0000"; //起始地址
-                        sendStr += "0020"; //数量
-                        sendStr += FormatFunc.ToModbusCRC16(sendStr, true);
-                        msg = DateTime.Now.ToString() + " KLC设备(" + comm_sn + ")发送数据采集指令:" + sendStr;
-                        ShowMsgEvent(msg);
-                        EveryDayLog.Write(msg);
-                        Send(state, sendStr);
-                    // 重置启动时间
-                        starttime = FormatFunc.getTimeStamp();
-                    }
-                    else if (timeGap >= _get_state_time)
-                    {
-                        
-                        //开始获取状态 15 01 00 00 00 06 02 03 00 00 00 04
-                        sendStr = "15010000000602";
-                        sendStr += "03";
-                        sendStr += "0000"; //起始地址
-                        sendStr += "0004"; //数量
-                        sendStr += FormatFunc.ToModbusCRC16(sendStr, true);
-                        Send(state, sendStr);
-                        msg = DateTime.Now.ToString() + " KLC设备(" + comm_sn + ")发送状态获取指令:" + sendStr;
-                        ShowMsgEvent(msg);
-                        EveryDayLog.Write(msg);
-                        Thread.Sleep(_get_state_time);
-                    }
-                    else
-                    {
-                        //时间片小于状态获取时间
-                        Thread.Sleep(_get_state_time);
-                    }
+                    //开始采集数据
+                    sendStr = "15010000000601";
+                    sendStr += "03";
+                    sendStr += "0000"; //起始地址
+                    sendStr += "0020"; //数量
+                    sendStr += FormatFunc.ToModbusCRC16(sendStr, true);
+                    msg = DateTime.Now.ToString() + " KLC设备(" + comm_sn + ")发送数据采集指令:" + sendStr;
+                    ShowMsgEvent(msg);
+                    EveryDayLog.Write(msg);
+                    Send(state, sendStr);
+
+                    Thread.Sleep(30000);
+                    //获取状态指令
+                    sendStr = "15010000000602";
+                    sendStr += "03";
+                    sendStr += "0000"; //起始地址
+                    sendStr += "0004"; //数量
+                    sendStr += FormatFunc.ToModbusCRC16(sendStr, true);
+                    Send(state, sendStr);
+                    msg = DateTime.Now.ToString() + " KLC设备(" + comm_sn + ")发送状态获取指令:" + sendStr;
+                    ShowMsgEvent(msg);
+                    EveryDayLog.Write(msg);
+                    Thread.Sleep(collect_time);
                 }
                 catch (Exception err)
                 {
@@ -2616,9 +2607,11 @@ namespace NewSockServer
         }
         public void FKC_getStateorDataThrd(TCPClientState state)
         {
+
             string comm_sn = state.clientComm.serial_num;
-            int comm_interval = state.clientComm.commpara*1000;
+            int comm_interval = state.clientComm.commpara * 1000;
             string commaddr = state.clientComm.commaddr;
+            string msg;
             int collect_time = 0;
             string sendStr = null;
             //采集时间>5分钟
@@ -2631,55 +2624,32 @@ namespace NewSockServer
                 collect_time = 300000;
             }
 
-
-            int startCollect = collect_time - _get_state_time;
-            //避免状态采集时间>数据采集时间
-            if (startCollect < 120000)
-            {
-                collect_time = _get_state_time + 120000;
-                startCollect = 120000;
-            }
-            int starttime = FormatFunc.getTimeStamp();
             while (state != null && state.clientStatus == 2)
             {
                 try
                 {
-                    int nowstamp = FormatFunc.getTimeStamp();
-                    int timeGap = nowstamp - starttime;
-                    if (timeGap >= startCollect)
-                    {
-                        //开始采集数据
-                        sendStr = state.clientComm.commaddr.ToString().PadLeft(2, '0');
-                        sendStr += "03";
-                        sendStr += "0000"; //起始地址
-                        sendStr += "0010"; //数量
-                        sendStr += FormatFunc.ToModbusCRC16(sendStr, true);
-                        string msg = DateTime.Now.ToString() + " FKC设备(" + comm_sn + ")开始发送数据采集指令:" + sendStr;
-                        ShowMsgEvent(msg);
-                        EveryDayLog.Write(msg);
-                        Send(state, sendStr);
-                        // 重置启动时间
-                        starttime = FormatFunc.getTimeStamp();
-                    }
-                    else if (timeGap >= _get_state_time)
-                    {
-                        //开始获取状态
-                        sendStr = "00700054";
-                        Send(state, sendStr);
-                        string msg = DateTime.Now.ToString() + " YYC设备(" + comm_sn + ")发送状态获取指令:" + sendStr;
-                        ShowMsgEvent(msg);
-                        EveryDayLog.Write(msg);
-                        Thread.Sleep(_get_state_time);
-                    }
-                    else
-                    {
-                        //时间片小于状态获取时间
-                        Thread.Sleep(_get_state_time);
-                    }
+                    //开始采集数据
+                    sendStr = state.clientComm.commaddr.ToString().PadLeft(2, '0');
+                    sendStr += "03";
+                    sendStr += "0000"; //起始地址
+                    sendStr += "0010"; //数量
+                    sendStr += FormatFunc.ToModbusCRC16(sendStr, true);
+                    msg = DateTime.Now.ToString() + " FKC设备(" + comm_sn + ")开始发送数据采集指令:" + sendStr;
+                    ShowMsgEvent(msg);
+                    EveryDayLog.Write(msg);
+                    Send(state, sendStr);
+
+                    Thread.Sleep(30000);
+                    sendStr = "00700054";
+                    Send(state, sendStr);
+                    msg = DateTime.Now.ToString() + " FKC设备（" + comm_sn + "）发送状态获取指令:" + sendStr;
+                    ShowMsgEvent(msg);
+                    EveryDayLog.Write(msg);
+                    Thread.Sleep(collect_time);
                 }
                 catch (Exception err)
                 {
-                    string msg = DateTime.Now.ToString() + " FKC设备(" + comm_sn + ")采集数据或状态，发生错误:" + err.Message;
+                    msg = DateTime.Now.ToString() + " FKC设备(" + comm_sn + ")采集数据或状态，发生错误:" + err.Message;
                     ShowMsgEvent(msg);
                     EveryDayLog.Write(msg);
                 }
@@ -2735,18 +2705,18 @@ namespace NewSockServer
         public void XPH_getStateorDataThrd(TCPClientState state)
         {
             string comm_sn = state.clientComm.serial_num;
-            int comm_interval = state.clientComm.commpara*1000;
+            int comm_interval = state.clientComm.commpara * 1000;
             string commaddr = state.clientComm.commaddr;
             int collect_time = 0;
             string sendStr = null;
-            ////采集时间>5分钟
-            if (comm_interval > 120000)
+            //采集时间>5分钟
+            if (comm_interval > 300000)
             {
-                collect_time = 120000;
+                collect_time = (int)comm_interval;
             }
             else
             {
-                collect_time = (int)comm_interval;
+                collect_time = 300000;
             }
 
             while (state != null && state.clientStatus == 2)
@@ -2784,13 +2754,13 @@ namespace NewSockServer
             int collect_time = 0;
             string sendStr = null;
             //采集时间>5分钟
-            if (comm_interval > 5 * 60 * 1000)
+            if (comm_interval > 300000)
             {
                 collect_time = (int)comm_interval;
             }
             else
             {
-                collect_time = 5 * 60 * 1000;
+                collect_time = 300000;
             }
 
             while (state != null && state.clientStatus == 2)
@@ -3424,7 +3394,6 @@ namespace NewSockServer
                             sSendStr += FormatFunc.ToModbusCRC16(sSendStr, true);
                             Send(oneCmd.client, sSendStr);
                         }
-
                         break;
                     case "AC-CLOSE":
                         if (((ControlDevice)oneControl).devtype.Equals("1"))
@@ -3439,6 +3408,17 @@ namespace NewSockServer
                     default:
                         break;
                 }
+                Thread.Sleep(10000);
+                //获取状态指令
+                string sendStr = "15010000000602";
+                sendStr += "03";
+                sendStr += "0000"; //起始地址
+                sendStr += "0004"; //数量
+                sendStr += FormatFunc.ToModbusCRC16(sendStr, true);
+                Send(oneCmd.client , sendStr);
+                msg = DateTime.Now.ToString() + " FKC设备（" + oneCmd.serialNumber + "）发送状态获取指令:" + sendStr;
+                ShowMsgEvent(msg);
+                EveryDayLog.Write(msg);
             }
             catch (Exception err)
             {
@@ -3561,7 +3541,15 @@ namespace NewSockServer
                         break;
                     default:
                         break;
+                    
                 }
+
+                Thread.Sleep(10000);
+                string sendStr = "00700054";
+                Send(oneCmd.client, sendStr);
+                msg = DateTime.Now.ToString() + " FKC设备（" + oneCmd.serialNumber + "）发送状态获取指令:" + sendStr;
+                ShowMsgEvent(msg);
+                EveryDayLog.Write(msg);
             }
             catch (Exception err)
             {
@@ -3569,7 +3557,6 @@ namespace NewSockServer
                 ShowMsgEvent(msg);
                 EveryDayLog.Write(msg);
             }
-
         }
 
         public void XPH_sendOrder(CommandInfo oneCmd)

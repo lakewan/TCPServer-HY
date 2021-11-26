@@ -7,6 +7,9 @@ using System.Linq;
 
 //using UnityEngine;
 using Newtonsoft.Json;
+using System.Threading;
+using System.IO;
+using System.Net;
 
 namespace DataFormat
 {
@@ -587,6 +590,63 @@ namespace DataFormat
             Dictionary<string, string> dic = JsonConvert.DeserializeObject<Dictionary<string, string>>(jsonStr);
             return dic;
         }
+        public static string StrRandom(int Length, bool Sleep)
+        {
+            if (Sleep)
+            {
+                Thread.Sleep(3);
+            }
+            char[] chArray = new char[] {
+                '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'A', 'B', 'C', 'D', 'E', 'F',
+                'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V',
+                'W', 'X', 'Y', 'Z'
+            };
+            string str = "";
+            int length = chArray.Length;
+            Random random = new Random(~((int)DateTime.Now.Ticks));
+            for (int i = 0; i < Length; i++)
+            {
+                int index = random.Next(0, length);
+                str = str + chArray[index].ToString();
+            }
+            return str;
+        }
+        public static void WriteBytesToFile(string fileName, byte[] content)
+        {
+            FileStream fs = new FileStream(fileName, FileMode.Create);
+            BinaryWriter writer = new BinaryWriter(fs);
+            try
+            {
+                writer.Write(content);
+            }
+            finally
+            {
+
+                writer.Close();
+                fs.Close();
+            }
+        }
+        public static byte[] GetBytesFromUrl(string url)
+        {
+            byte[] buffer;
+            WebResponse response = ((HttpWebRequest)WebRequest.Create(url)).GetResponse();
+            using (BinaryReader reader = new BinaryReader(response.GetResponseStream()))
+            {
+                buffer = reader.ReadBytes(0x7_a120);
+                reader.Close();
+            }
+            response.Close();
+            return buffer;
+        }
+
+
+
+
+
+
+
+
+
     }
 
 

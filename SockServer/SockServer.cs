@@ -45,7 +45,7 @@ namespace SockServer
         /// <summary>
         /// 客户端会话列表
         /// </summary>
-        private List<Object> _clients;
+        private List<TCPClientState> _clients;
         private List<CommDevice> _commList;
         private List<ControlDevice> _controlList;
         private List<SensorDevice> _sensorList;
@@ -158,7 +158,7 @@ namespace SockServer
                 _controlList = new List<ControlDevice>();
                 _sensorList = new List<SensorDevice>();
                 _maxClient = 100000;
-                _clients = new List<object>();
+                _clients = new List<TCPClientState>();
                 _listener = new TcpListener(Address, Port);
                 _listener.AllowNatTraversal(true);
                 IsRunning = false;
@@ -251,10 +251,12 @@ namespace SockServer
                 byte[] buffer = new byte[client.ReceiveBufferSize];
 
                 TCPClientState state
-                  = new TCPClientState(client, buffer);
-                state.lastTime = DateTime.Now.ToString();
-                state.faildTimes = 0;
-                state._isolder = false;
+                  = new TCPClientState(client, buffer) {
+                    lastTime = DateTime.Now.ToString(),
+                    faildTimes = 0,
+                    _isolder = false,
+                    clientComm = null
+                  };
 
                 lock (_clients)
                 {
@@ -380,24 +382,60 @@ namespace SockServer
             EveryDayLog.Write(msg);
             Object clientComm = null;
             string gw_sn = null;
-            if (isHeartBeat(sRecvData) != null)
+            clientComm = isHeartBeat(sRecvData);
+            if (clientComm != null)
             {
-                clientComm = isHeartBeat(sRecvData);
                 gw_sn = ((CommDevice)clientComm).serial_num;
             }
 
             //连接缓冲字典
-            if (_PendingDict.TryGetValue(ipport, out int connectTimes))
+            if (state.clientStatus == 1)
             {
-
-                //心跳数据
-                if (gw_sn != null)
+                if(gw_sn == null)
                 {
-                    msg = DateTime.Now.ToString() + " 从待授权客户端（" + gw_sn + "）接受数据：" + sRecvData;
+                    state.faildTimes++;
+                    msg = DateTime.Now.ToString() + " 从待连接客户端（" + gw_sn + "）接受非心跳数据：" + sRecvData+ ",已失败次数: "+state.faildTimes.ToString();
                     ShowMsgEvent(msg);
                     EveryDayLog.Write(msg);
+                }
+
+                //心跳数据
+                else
+                {
                     try
                     {
+                        if (sRecvData.Substring(0, 12).ToUpper().Equals("150122220010"))
+                        {
+                            TCPClientState clientstate = findStatebySN(gw_sn, true);
+                            if(clientstate !=null)
+                            {
+                                if(((int)DateTime.Now.Subtract(Convert.ToDateTime(clientstate.lastTime)).Duration().TotalSeconds) <= 300)
+                                {
+                                    msg = DateTime.Now.ToString() + "待连接客户端(" + gw_sn + ")与上一个已连接间隔<=5分钟，不允许再次连接";
+                                    ShowMsgEvent(msg);
+                                    EveryDayLog.Write(msg);
+
+                                }
+                                else
+                                {
+                                    clientstate.clientStatus = 3;
+                                    msg = DateTime.Now.ToString() + " 从待连接客户端(" + gw_sn + ")接受请求，关闭原有连接，准备创建新连接";
+                                    this.ShowMsgEvent(msg);
+                                    EveryDayLog.Write(msg);
+                                }
+
+                            }
+                            state.faildTimes = 0;
+                            state.lastTime = DateTime.Now.ToString();
+                            state.clientStatus = 2;
+                            state.clientComm = clientComm;
+                            addClientEvent(gw_sn);
+                            Task.Run(() => this.collectDataorState(state));
+                            msg = DateTime.Now.ToString() + " 从待连接客户端(" + gw_sn + ")请求，建立连接和接受数据";
+                            this.ShowMsgEvent(msg);
+                            EveryDayLog.Write(msg);
+
+                        }
                         //已有连接
                         if (_commtoipportDict != null && (_commtoipportDict.TryGetValue(gw_sn, out string clientip)))
                         {
@@ -669,34 +707,37 @@ namespace SockServer
         /// <param name="ipport"></param>
         /// <param name="recvdata"></param>
         /// <returns></returns>
-        public Object isHeartBeat(string recvdata)
+        public CommDevice isHeartBeat(string recvdata)
         {
-            Object sReturn = null;
             string commSN = null;
             try
             {
-                if (recvdata.Length == 16 || recvdata.Length == 44)
-                {
-                    if (recvdata.Substring(0, 12).ToUpper().Equals("150122220010") && recvdata.Length == 44) //昆仑海岸网关请求连接
-                    {
-                        //150122220010 31323030323031393036313231303938
-                        commSN = FormatFunc.HexToAscii(recvdata.Substring(12));
-                        ///////////////////////////////发送回应数据
-                    }
-                    else if (recvdata.Length == 16)
-                    {
-                        commSN = recvdata;
-                    }
-                    foreach (CommDevice one in _commList)
-                    {
-                        if (one.serial_num.ToUpper().Equals(commSN))
-                        {
-                            return one;
-                        }
 
+                if (recvdata.Substring(0, 12).ToUpper().Equals("150122220010") && recvdata.Length == 44) //昆仑海岸网关请求连接
+                {
+                    //150122220010 31323030323031393036313231303938
+                    commSN = FormatFunc.HexToAscii(recvdata.Substring(12));
+                    ///////////////////////////////发送回应数据
+                }
+                else if (recvdata.Length == 16)
+                {
+                    commSN = recvdata;
+                }
+                else if ((recvdata.Length == 66) && string.Equals(recvdata.Substring(0, 6), "FEDC01", StringComparison.OrdinalIgnoreCase))
+                {
+                    commSN = recvdata.Substring(6, 12);
+                }
+
+                foreach (CommDevice one in _commList)
+                {
+                    if (one.serial_num.ToUpper().Equals(commSN))
+                    {
+                        return one;
                     }
+
                 }
             }
+            
             catch (Exception err)
             {
                 string msg = DateTime.Now.ToString() + " 判断心跳数据失败： " + err.Message;
@@ -3765,6 +3806,41 @@ namespace SockServer
             }
             return sReturn;
         }
+        public TCPClientState findStatebySN(string comm_sn, bool bOnLine)
+        {
+            TCPClientState state;
+            try
+            {
+                if (_clients.Count > 0)
+                {
+                    int num = _clients.Count - 1;
+                    while (true)
+                    {
+                        if (num < 0)
+                        {
+                            break;
+                        }
+                        if ((_clients[num].TcpClient == null) || ((_clients[num].TcpClient.Client == null) || ((this._clients[num].clientComm == null) || !this._clients[num].clientComm.serial_num.Equals(comm_sn))))
+                        {
+                            num--;
+                            continue;
+                        }
+                        return (!bOnLine ? this._clients[num] : ((_clients[num].clientStatus != 2) ? null : this._clients[num]));
+                    }
+                }
+                return null;
+            }
+            catch (Exception exception)
+            {
+                string[] textArray1 = new string[] { DateTime.Now.ToString(), " 查找通讯设备(", comm_sn, ")通讯客户端发生错误:", exception.Message };
+                string msg = string.Concat(textArray1);
+                this.ShowMsgEvent(msg);
+                EveryDayLog.Write(msg);
+                state = null;
+            }
+            return state;
+        }
+
 
 
         ////public int getCommbyMqtt(int for_value, string comm_sn, int devclass, int devpara)
@@ -4301,7 +4377,7 @@ namespace SockServer
                 _faildTimes = value;
             }
         }
-        public CommDevice clientComm
+        public CommDevice? clientComm
         {
             get
             {
@@ -4309,7 +4385,7 @@ namespace SockServer
             }
             set
             {
-                _clientComm = value;
+                _clientComm = (CommDevice)value;
             }
         }
 

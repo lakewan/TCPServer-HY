@@ -68,7 +68,7 @@ namespace NewSockServer
         private string _communicationtype;
         private int _linked_timeout;
 
-        //MQTT对接信息
+        //MQTT对接信息11111
         private string mqtt_host;
         private string mqtt_port;
         private MqttClient mqtt_client;
